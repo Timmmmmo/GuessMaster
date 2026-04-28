@@ -95,6 +95,7 @@ html,body{
 /* 输入区 - 关键修复：确保始终可见 */
 .in-area{margin-bottom:10px;position:relative;z-index:5}
 .in-hint{text-align:center;font-size:11px;color:var(--text2);margin-bottom:6px;min-height:16px}
+.dir-hint{text-align:center;font-size:13px;color:var(--gold);min-height:22px;margin-top:8px;font-weight:500;opacity:0}
 .in-row{display:flex;gap:8px;align-items:center}
 .in-row input{flex:1;height:48px;border-radius:14px;border:2px solid var(--card2);
   background:var(--card);color:var(--text);font-size:16px;padding:0 14px;outline:none;
@@ -198,6 +199,7 @@ html,body{
   <div class="prob-sec">
     <div class="prob-lbl"><span>匹配概率</span><span id="probTxt">输入答案开始</span></div>
     <div class="prob-wrap"><div class="prob-bg"><div class="prob-fill" id="probFill" style="width:0%">0%</div></div></div>
+    <div class="dir-hint" id="dirHint"></div>
     <div class="hist" id="hist"></div>
   </div>
 
@@ -503,11 +505,21 @@ function initState(){
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
 
-// 相似度计算
-function calcSim(input,target){
+// 相似度计算 - 城市模式支持距离计算
+function calcSim(input,target,targetCoords){
   const a=input.trim().toLowerCase(), b=target.trim().toLowerCase();
   if(!a||!b)return 1;
   if(a===b)return 99;
+  
+  // 城市距离模式
+  if(targetCoords){
+    const gc=getGuessCoords(a);
+    if(gc){
+      const km=calcDist(gc[0],gc[1],targetCoords[0],targetCoords[1]);
+      return distToProb(km);
+    }
+  }
+  
   // 包含关系
   if(b.includes(a)&&a.length>=2)return Math.min(99,85+Math.floor(Math.random()*10));
   if(a.includes(b)&&b.length>=2)return Math.min(99,80+Math.floor(Math.random()*10));
@@ -624,7 +636,27 @@ function updateProbBar(p){
   document.getElementById('probTxt').style.color=p>=70?'var(--success)':p>=35?'var(--gold)':'var(--text2)';
 }
 
-// ==================== 游戏逻辑 ====================
+// ==================== 城市坐标系统 ====================
+const CITY_COORDS={
+"成都":[30.57,104.07],"杭州":[30.27,120.15],"武汉":[30.58,114.31],"西安":[34.34,108.94],
+"重庆":[29.56,106.55],"南京":[32.06,118.79],"天津":[39.12,117.20],"苏州":[31.30,120.59],
+"长沙":[28.23,112.94],"郑州":[34.76,113.63],"青岛":[36.07,120.38],"大连":[39.01,121.58],
+"宁波":[29.87,121.55],"厦门":[24.48,118.08],"福州":[26.08,119.30],"无锡":[31.49,120.29],
+"合肥":[31.82,117.23],"昆明":[25.04,102.72],"哈尔滨":[45.80,126.53],"济南":[36.65,117.12],
+"佛山":[23.02,113.13],"东莞":[23.02,113.75],"泉州":[24.78,118.64],"南通":[32.01,120.89],
+"烟台":[37.52,121.39],"温州":[27.99,120.70],"沈阳":[41.81,123.43],"贵阳":[26.65,106.63],
+"南昌":[28.68,115.86],"常州":[31.81,119.97],"唐山":[39.63,118.18],"徐州":[34.21,117.29],
+"嘉兴":[30.75,120.76],"扬州":[32.39,119.43],"惠州":[23.11,114.42],"绍兴":[30.00,120.58],
+"中山":[22.52,113.39],"珠海":[22.28,113.58],"台州":[28.66,121.43],"金华":[29.08,119.65],
+"保定":[38.87,115.48],"潍坊":[36.71,119.16],"洛阳":[34.62,112.45],"乌鲁木齐":[43.83,87.62],
+"兰州":[36.06,103.84],"海口":[20.04,110.35],"三亚":[18.25,109.51],"威海":[37.51,122.12],
+"太原":[37.87,112.55],"石家庄":[38.04,114.51],"南宁":[22.82,108.37],"呼和浩特":[40.84,111.75],
+"拉萨":[29.65,91.10],"银川":[38.47,106.23],"西宁":[36.62,101.78]
+};
+function calcDist(lat1,lon1,lat2,lon2){const R=6371;const dLat=(lat2-lat1)*Math.PI/180;const dLon=(lon2-lon1)*Math.PI/180;const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function distToProb(km){if(km<50)return 95+Math.floor(Math.random()*4);if(km<150)return 85+Math.floor(Math.random()*10);if(km<300)return 70+Math.floor(Math.random()*15);if(km<500)return 55+Math.floor(Math.random()*15);return Math.max(5,25+Math.floor((800-km)/40));}
+function getGuessCoords(input){for(const[n,c]of Object.entries(CITY_COORDS)){if(n.toLowerCase()===input.toLowerCase())return c;if(input.length>=2&&(n.includes(input)||n.startsWith(input)))return c;}return null;}
+function getDirHint(t,c){const dLat=c[0]-t[0],dLon=c[1]-t[1];if(Math.abs(dLat)<0.3&&Math.abs(dLon)<0.3)return"离答案很近!";let dir="";if(Math.abs(dLon)>Math.abs(dLat))dir=dLon>0?"东":"西";else dir=dLat>0?"南":"北";return"答案在你猜测的"+dir+"边";}
 function genQuestion(){
   // typeKey映射：数据库key是复数形式
   const typeKeys=[{k:'items',t:'item'},{k:'geo',t:'geo'},{k:'cities',t:'city'}];
@@ -657,7 +689,8 @@ function submitAns(){
   if(state.chances<=0)return;
   
   state.chances--;
-  const prob=calcSim(val,state.q.name);
+  const tc=state.q.type==='city'?CITY_COORDS[state.q.name]:null;
+  const prob=calcSim(val,state.q.name,tc);
   state.history.push({a:val,p:prob});
   
   updateProbBar(prob);
@@ -850,10 +883,17 @@ function init(){
       // 实时预览概率
       ansInput.addEventListener('input',function(e){
         const v=(e.target.value||'').trim();
+        const dh=document.getElementById('dirHint');
         if(v&&state.q){
-          const p=calcSim(v,state.q.name);
+          const tc=state.q.type==='city'?CITY_COORDS[state.q.name]:null;
+          const p=calcSim(v,state.q.name,tc);
           updateProbBar(p);
-        }
+          if(tc){
+            const gc=getGuessCoords(v.toLowerCase());
+            dh.textContent=gc?getDirHint(tc,gc):'尝试输入完整城市名';
+            dh.style.opacity='1';
+          }else{dh.style.opacity='0';dh.textContent='';}
+        }else{dh.style.opacity='0';dh.textContent='';}
       });
       
       // 自动聚焦
