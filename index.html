@@ -627,7 +627,7 @@ function updateProbBar(p){
 // ==================== 游戏逻辑 ====================
 function genQuestion(){
   // typeKey映射：数据库key是复数形式
-  const typeKeys=[{k:'item',t:'item'},{k:'geo',t:'geo'},{k:'cities',t:'city'}];
+  const typeKeys=[{k:'items',t:'item'},{k:'geo',t:'geo'},{k:'cities',t:'city'}];
   const picked=pick(typeKeys);
   const pool=DB[picked.k];
   if(!pool||!pool.length){console.error('Empty pool:',picked.k);return{name:'未知',hints:['加载失败'],icon:'❓',type:'item'}}
