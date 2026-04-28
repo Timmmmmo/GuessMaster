@@ -636,6 +636,82 @@ function updateProbBar(p){
   document.getElementById('probTxt').style.color=p>=70?'var(--success)':p>=35?'var(--gold)':'var(--text2)';
 }
 
+// ==================== 城市区域系统 ====================
+const REGION_MAP={};
+
+const REGIONS={
+  huadong:['上海','南京','杭州','苏州','无锡','宁波','温州','南通','常州','徐州','扬州','镇江','盐城','淮安','连云港','泰州','宿迁','金华','嘉兴','绍兴','台州','湖州','丽水','衢州','舟山','合肥','芜湖','蚌埠','淮南','马鞍山','淮北','铜陵','安庆','黄山','滁州','阜阳','宿州','六安','亳州','池州','宣城','福州','厦门','泉州','漳州','莆田','宁德','南昌','赣州','九江','上饶','抚州','宜春','吉安','景德镇','萍乡','新余','鹰潭','济南','青岛','烟台','威海','潍坊','淄博','临沂','济宁','泰安','德州','聊城','滨州','菏泽','枣庄','日照'],
+  huabei:['北京','天津','石家庄','保定','唐山','廊坊','沧州','衡水','邢台','邯郸','秦皇岛','张家口','承德','太原','大同','临汾','运城','长治','晋城','朔州','晋中','吕梁','阳泉','呼和浩特','包头','鄂尔多斯','呼伦贝尔'],
+  dongbei:['沈阳','大连','鞍山','抚顺','锦州','长春','吉林','哈尔滨','大庆','齐齐哈尔','牡丹江','佳木斯'],
+  huazhong:['武汉','长沙','郑州','洛阳','开封','株洲','湘潭','衡阳','岳阳','常德','张家界','益阳','郴州','永州','邵阳','怀化','娄底','湘西','襄阳','宜昌','荆州','黄石','十堰','孝感','黄冈','咸宁','随州','恩施'],
+  huanan:['广州','深圳','东莞','佛山','珠海','中山','惠州','汕头','江门','湛江','茂名','肇庆','韶关','南宁','桂林','柳州','北海','梧州','百色','玉林','海口','三亚'],
+  xinan:['成都','重庆','昆明','贵阳','拉萨','西安','兰州','西宁','银川','乌鲁木齐','绵阳','德阳','南充','宜宾','泸州','达州','乐山','内江','遂宁','广元','自贡','攀枝花','广安','巴中','雅安','眉山','资阳','阿坝','甘孜','凉山'],
+  xibei:['西安','兰州','西宁','银川','乌鲁木齐','呼和浩特','包头','鄂尔多斯']
+};
+
+const REGION_NAMES={huadong:'华东',huabei:'华北',dongbei:'东北',huazhong:'华中',huanan:'华南',xinan:'西南',xibei:'西北'};
+
+for(const [rk,rlist] of Object.entries(REGIONS)){for(const c of rlist){REGION_MAP[c]=rk;}}
+
+// ==================== 坐标计算 ====================
+function calcDist(lat1,lon1,lat2,lon2){
+  const R=6371;
+  const dLat=(lat2-lat1)*Math.PI/180;
+  const dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// 距离→概率：更保守的映射，不容易猜到答案
+function distToProb(km){
+  if(km<50)return 50+Math.floor(Math.random()*20);
+  if(km<100)return 35+Math.floor(Math.random()*15);
+  if(km<200)return 25+Math.floor(Math.random()*15);
+  if(km<300)return 18+Math.floor(Math.random()*12);
+  if(km<500)return 12+Math.floor(Math.random()*12);
+  if(km<800)return 6+Math.floor(Math.random()*10);
+  if(km<1000)return 3+Math.floor(Math.random()*7);
+  return 1+Math.floor(Math.random()*5);
+}
+
+// 省份首字母→城市坐标
+function getGuessCoords(name){
+  for(const [cn,coord] of Object.entries(CITY_COORDS)){
+    if(cn.includes(name)||name.includes(cn))return coord;
+    const alias=CN_ALIAS[name];
+    if(alias&&alias===cn)return CITY_COORDS[cn];
+  }
+  return null;
+}
+
+// 方向提示：更模糊的区域级别
+function getDirHint(targetCoords,guessCoords){
+  const dLat=targetCoords[0]-guessCoords[0];
+  const dLon=targetCoords[1]-guessCoords[1];
+  const dist=calcDist(guessCoords[0],guessCoords[1],targetCoords[0],targetCoords[1]);
+  const dirs=[];
+  if(dLat>0.3)dirs.push('北');else if(dLat<-0.3)dirs.push('南');
+  if(dLon>0.3)dirs.push('东');else if(dLon<-0.3)dirs.push('西');
+  const base=dirs.length>0?dirs.join(''):'';
+  if(dist<100)return'很近！'+base;
+  if(dist<300)return'大概在'+base+'边';
+  if(dist<600)return'方向'+base;
+  if(dist<1000)return'挺远，跨区域';
+  return'完全不对';
+}
+
+// 大区域提示（更模糊）
+function getRegionHint(targetRegion,guessRegion){
+  if(!targetRegion||!guessRegion)return null;
+  if(targetRegion===guessRegion)return'在同一区域';
+  const order={huadong:1,huazhong:2,huanan:3,huabei:4,dongbei:5,xinan:6,xibei:7};
+  const d=Math.abs((order[targetRegion]||4)-(order[guessRegion]||4));
+  if(d<=1)return'在相邻区域';
+  if(d<=2)return'在附近区域';
+  if(d<=3)return'不在这个方向';
+  return'方向完全不对';
+}
+
 // ==================== 城市坐标系统 ====================
 const CITY_COORDS={
 "成都":[30.57,104.07],"杭州":[30.27,120.15],"武汉":[30.58,114.31],"西安":[34.34,108.94],
@@ -698,9 +774,9 @@ function submitAns(){
   renderChances();
   input.value='';
   input.focus();
-  document.getElementById('inHint').textContent=prob>=70?'🔥 很接近了！再试试！':prob>=40?'🤔 方向对了，继续加油！':'💪 再想想，换个角度？';
+  document.getElementById('inHint').textContent=prob>=60?'🔥 很接近了！':prob>=30?'🤔 方向差不多，继续！':'💪 再想想... ';
   
-  if(prob>=95){
+  if(prob>=85){
     setTimeout(()=>showResult(true),500);
   }else if(state.chances<=0){
     setTimeout(()=>showResult(false),600);
@@ -880,7 +956,7 @@ function init(){
         }
       });
       
-      // 实时预览概率
+      // 实时预览概率（城市题使用模糊区域提示）
       ansInput.addEventListener('input',function(e){
         const v=(e.target.value||'').trim();
         const dh=document.getElementById('dirHint');
@@ -890,8 +966,15 @@ function init(){
           updateProbBar(p);
           if(tc){
             const gc=getGuessCoords(v.toLowerCase());
-            dh.textContent=gc?getDirHint(tc,gc):'尝试输入完整城市名';
-            dh.style.opacity='1';
+            if(gc){
+              const rh=getRegionHint(getRegion(state.q.name),getRegion(v));
+              const dh2=getDirHint(tc,gc);
+              dh.textContent=rh?(rh+' | '+dh2):dh2;
+              dh.style.opacity='1';
+            }else{
+              dh.textContent='试试输入一个城市名';
+              dh.style.opacity='1';
+            }
           }else{dh.style.opacity='0';dh.textContent='';}
         }else{dh.style.opacity='0';dh.textContent='';}
       });
