@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>⚔️ 魔兽兵种对战 V3.3 - 基地攻防版</title>
+  <title>⚔️ 魔兽兵种对战 V3.4 - 基地攻防版</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -568,6 +568,7 @@
     .log-income { color: #f39c12; }
     .log-base { color: #e74c3c; font-weight: bold; }
     .log-spawn { color: #27ae60; }
+    .log-spawn span { color: #888; font-size: 0.75rem; }
     .log-tech { color: #9b59b6; }
 
     /* === 结果横幅 === */
@@ -1254,6 +1255,9 @@ function startIncomeTimer() {
     logContainer.innerHTML += `<div class="log-entry log-income">💰 收入周期！蓝方 +${bs.goldPerTurn}金+${bs.lumberPerTurn}木 | 红方 +${rs.goldPerTurn}金+${rs.lumberPerTurn}木</div>`;
 
     // AI决策
+    const blueAnalysis = blueBrain.analyzeEnemy(redBrain.army.filter(u => !u.dead));
+    const redAnalysis = redBrain.analyzeEnemy(blueBrain.army.filter(u => !u.dead));
+
     const blueTurn = blueBrain.takeTurn(redBrain.army);
     const redTurn = redBrain.takeTurn(blueBrain.army);
 
@@ -1283,18 +1287,25 @@ function startIncomeTimer() {
       showHeroToast("🔴", heroInfo.name + (redTurn.heroRevived ? " 复活" : ""), heroInfo.icon);
     }
 
-    // 记录新单位
-    if (blueTurn.unitsProduced.length > 0) {
-      const names = blueTurn.unitsProduced.map(u => `${UNITS_V2[u]?.icon}${UNITS_V2[u]?.name}`).join(", ");
-      logContainer.innerHTML += `<div class="log-entry log-spawn">🔵 出兵: ${names}</div>`;
-      // 标记新单位
-      blueBrain.army.forEach(u => { if (!u._marked) { u._newSpawn = true; u._marked = true; }});
-    }
-    if (redTurn.unitsProduced.length > 0) {
-      const names = redTurn.unitsProduced.map(u => `${UNITS_V2[u]?.icon}${UNITS_V2[u]?.name}`).join(", ");
-      logContainer.innerHTML += `<div class="log-entry log-spawn">🔴 出兵: ${names}</div>`;
-      redBrain.army.forEach(u => { if (!u._marked) { u._newSpawn = true; u._marked = true; }});
-    }
+    // 记录新单位（V3.4.0 逐个显示AI推理）
+    const logProducedUnits = async (turn, color, colorEmoji) => {
+      if (turn.productionReasons && turn.productionReasons.length > 0) {
+        for (const pick of turn.productionReasons) {
+          const u = UNITS_V2[pick.type];
+          logContainer.innerHTML += `<div class="log-entry log-spawn">${colorEmoji} 生产 ${u?.icon || ''}${u?.name || pick.type} <span style="color:#888;font-size:0.75rem">(${pick.reason} ${pick.score}分)</span></div>`;
+          logContainer.scrollTop = logContainer.scrollHeight;
+          await sleep(400); // 逐个显示间隔
+        }
+        // 标记新单位
+        const brain = color === 'blue' ? blueBrain : redBrain;
+        brain.army.forEach(u => { if (!u._marked) { u._newSpawn = true; u._marked = true; }});
+      } else if (turn.unitsProduced && turn.unitsProduced.length > 0) {
+        const names = turn.unitsProduced.map(u => `${UNITS_V2[u]?.icon}${UNITS_V2[u]?.name}`).join(", ");
+        logContainer.innerHTML += `<div class="log-entry log-spawn">${colorEmoji} 出兵: ${names}</div>`;
+      }
+    };
+    await logProducedUnits(blueTurn, 'blue', '🔵');
+    await logProducedUnits(redTurn, 'red', '🔴');
 
     // 清理日志
     const entries = logContainer.querySelectorAll('.log-entry, .log-round');
