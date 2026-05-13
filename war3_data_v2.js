@@ -2,7 +2,7 @@
 // 包含：技能系统、动画效果、资源管理、科技升级
 // Updated: 2026-05-10 v2.5.0 - 英雄系统
 
-const VERSION = "3.0.0";
+const VERSION = "3.3.0";
 
 // ==================== 攻击/护甲类型 ====================
 const ARMOR_TYPES = {
@@ -521,14 +521,14 @@ const UNITS_V2 = {
   footman: {
     name: "步兵",
     icon: "⚔️",
-    cost: 100,
-    goldCost: 100,
+    cost: 110,
+    goldCost: 110,
     lumberCost: 0,
-    hp: 500,
+    hp: 460,
     damage: 13,
     attackType: "normal",
     armorType: "medium",
-    armor: 5,
+    armor: 4,
     speed: 280,
     range: "melee",
     mana: 0,
@@ -541,21 +541,21 @@ const UNITS_V2 = {
   archer: {
     name: "弓箭手",
     icon: "🏹",
-    cost: 120,
-    goldCost: 120,
+    cost: 110,
+    goldCost: 110,
     lumberCost: 0,
-    hp: 300,
-    damage: 10,
+    hp: 320,
+    damage: 12,
     attackType: "pierce",
     armorType: "light",
     armor: 0,
-    speed: 320,
+    speed: 330,
     range: "ranged",
     mana: 0,
     maxMana: 0,
     skills: [],
     tier: 1,
-    desc: "远程穿刺单位，克制轻甲"
+    desc: "远程穿刺单位，克制轻甲，高攻速"
   },
 
   mage: {
@@ -564,7 +564,7 @@ const UNITS_V2 = {
     cost: 150,
     goldCost: 130,
     lumberCost: 20,
-    hp: 280,
+    hp: 300,
     damage: 18,
     attackType: "magic",
     armorType: "none",
@@ -642,11 +642,11 @@ const UNITS_V2 = {
   priest: {
     name: "牧师",
     icon: "✝️",
-    cost: 160,
-    goldCost: 140,
+    cost: 145,
+    goldCost: 125,
     lumberCost: 20,
-    hp: 320,
-    damage: 8,
+    hp: 340,
+    damage: 10,
     attackType: "magic",
     armorType: "light",
     armor: 1,
@@ -793,11 +793,11 @@ const UNITS_V2 = {
   sorceress: {
     name: "女巫",
     icon: "🧙‍♀️",
-    cost: 145,
-    goldCost: 125,
+    cost: 135,
+    goldCost: 115,
     lumberCost: 20,
-    hp: 245,
-    damage: 9,
+    hp: 265,
+    damage: 10,
     attackType: "magic",
     armorType: "light",
     armor: 0,
@@ -1170,10 +1170,11 @@ class ResourceManager {
 
 // ==================== AI策略（增强版） ====================
 class AIBrainV2 {
-  constructor(name, personality = "balanced", heroType = null) {
+  constructor(name, personality = "balanced", heroType = null, difficulty = "normal") {
     this.name = name;
     this.personality = personality; // aggressive, defensive, balanced, economic
     this.heroType = heroType; // strength_hero, agility_hero, intelligence_hero
+    this.difficulty = difficulty; // V3.3.0 easy, normal, hard
     this.hasHero = false;
     this.hero = null;
     this.resources = new ResourceManager(500, 500);
@@ -1183,6 +1184,25 @@ class AIBrainV2 {
     this.turnCount = 0;
     this.heroLevel = 1; // V3.2.0 英雄等级
     this.heroReviveTimer = 0; // V3.2.0 复活倒计时
+    // V3.3.0 战斗统计
+    this.battleStats = {
+      damageByUnit: {},   // { unitType: totalDamage }
+      skillUsage: {},     // { skillId: count }
+      killsByUnit: {},    // { unitType: killCount }
+      killTimeline: [],   // [{ round, killer, victim }]
+      totalDamageDealt: 0,
+      totalDamageTaken: 0,
+      unitsProduced: {},  // { unitType: count }
+      peakArmySize: 0
+    };
+
+    // V3.3.0 难度参数
+    const DIFFICULTY_PARAMS = {
+      easy:   { incomeMult: 0.7, armyCap: 12, scoreNoise: 40, techDelay: 2 },
+      normal: { incomeMult: 1.0, armyCap: 16, scoreNoise: 0,  techDelay: 0 },
+      hard:   { incomeMult: 1.3, armyCap: 20, scoreNoise: 0,  techDelay: 0, counterWeight: 1.5 }
+    };
+    this.diffParams = DIFFICULTY_PARAMS[difficulty] || DIFFICULTY_PARAMS.normal;
   }
 
   // 分析敌方阵容
@@ -1291,9 +1311,10 @@ class AIBrainV2 {
 
     // 根据策略选择单位
     const livingCount = this.army.filter(u => !u.dead).length;
-    // 提高目标军队规模，更积极地出兵
+    // V3.3.0 难度影响军队上限
     const targetArmySize = this.strategyPhase === "early" ? 6 : this.strategyPhase === "mid" ? 10 : 14;
-    const maxToProduce = Math.max(0, targetArmySize - livingCount);
+    const armyCap = this.diffParams.armyCap;
+    const maxToProduce = Math.max(0, Math.min(targetArmySize - livingCount, armyCap - livingCount));
 
     let produceCount = 0;
     while (produceCount < maxToProduce) {
@@ -1305,6 +1326,11 @@ class AIBrainV2 {
         if (!this.resources.canAfford(unitType)) continue;
 
         let score = 0;
+
+        // V3.3.0 简单模式加入评分噪声（让AI做出次优选择）
+        if (this.diffParams.scoreNoise > 0) {
+          score += (Math.random() - 0.5) * this.diffParams.scoreNoise;
+        }
 
         // 基础评分：性价比 - 更注重伤害输出
         score += unit.damage / unit.cost * 150; // 提高伤害权重
@@ -1321,11 +1347,11 @@ class AIBrainV2 {
 
         // 根据敌人调整评分 - V3.0.8 增强克制逻辑
         if (analysis) {
-          // 针对敌方护甲分布计算加权克制评分
-          let counterScore = 0;
+          // V3.3.0 困难模式增强克制逻辑
+          let counterWeight = this.diffParams.counterWeight || 1.0;
           for (const [armorType, count] of Object.entries(analysis.armorDistribution)) {
             const mult = DAMAGE_TABLE[unit.attackType]?.[armorType] ?? 1;
-            counterScore += (mult - 1) * count * 50; // 越克制越高分，按敌人数基加权
+            counterScore += (mult - 1) * count * 50 * counterWeight; // 越克制越高分，按敌人数基加权
           }
           score += counterScore;
 
@@ -1466,15 +1492,19 @@ class AIBrainV2 {
       this.resources.researchTech(techChoice);
     }
 
-    // 3. 生产单位（场上单位上限15，不含英雄）
+    // 3. 生产单位（V3.3.0 难度影响军队上限）
     const livingCount = this.army.filter(u => !u.dead).length;
-    if (livingCount < 16) {
+    const armyCap = this.diffParams.armyCap;
+    if (livingCount < armyCap) {
       const newUnits = this.decideProduction(enemyArmy);
       newUnits.forEach(u => {
         const unit = new UnitV2(u, this.name, this.army.length);
         unit._newSpawn = true;
         unit._marked = true;
         this.army.push(unit);
+        // V3.3.0 统计
+        this.battleStats.unitsProduced[u] = (this.battleStats.unitsProduced[u] || 0) + 1;
+        this.battleStats.peakArmySize = Math.max(this.battleStats.peakArmySize, this.army.filter(x => !x.dead).length);
       });
       return {
         techResearched: techChoice,
@@ -1493,6 +1523,17 @@ class AIBrainV2 {
       resources: this.resources.getState()
     };
   }
+    // V3.3.0 收入倍率受难度影响
+    addIncomeWithDifficulty() {
+      const mult = this.diffParams ? this.diffParams.incomeMult : 1.0;
+      this.resources.gold += Math.round(this.resources.goldPerTurn * mult);
+      this.resources.lumber += Math.round(this.resources.lumberPerTurn * mult);
+    }
+
+    // 获取战斗统计
+    getBattleStats() {
+      return this.battleStats;
+    }
 }
 
 // ==================== 导出 ====================

@@ -1,0 +1,2211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚔️ 魔兽兵种对战 V3.3 - 基地攻防版</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      min-height: 100vh;
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    /* === 头部 === */
+    .header {
+      text-align: center;
+      padding: 15px;
+      background: rgba(0,0,0,0.4);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .header h1 {
+      font-size: 1.8rem;
+      background: linear-gradient(90deg, #f39c12, #e74c3c, #9b59b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header .subtitle { color: #888; font-size: 0.85rem; margin-top: 4px; }
+
+    /* === 资源条 === */
+    .resource-bar {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      padding: 10px;
+      background: rgba(0,0,0,0.3);
+      flex-wrap: wrap;
+    }
+    .resource-panel {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px;
+    }
+    .resource-panel.blue { border: 1px solid rgba(52,152,219,0.3); }
+    .resource-panel.red { border: 1px solid rgba(231,76,60,0.3); }
+    .resource-icon { font-size: 1.3rem; }
+    .resource-info { text-align: left; }
+    .resource-value { font-size: 1.1rem; font-weight: bold; }
+    .resource-income { font-size: 0.7rem; color: #27ae60; }
+    .resource-label { font-size: 0.7rem; color: #888; }
+    .blue .resource-value { color: #3498db; }
+    .red .resource-value { color: #e74c3c; }
+
+    /* === 基地血量条 === */
+    .base-bar {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      padding: 8px 10px;
+      background: rgba(0,0,0,0.25);
+      flex-wrap: wrap;
+    }
+    .base-panel {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 10px;
+      min-width: 280px;
+    }
+    .base-panel.blue { border: 1px solid rgba(52,152,219,0.2); }
+    .base-panel.red { border: 1px solid rgba(231,76,60,0.2); }
+    .base-icon { font-size: 1.8rem; }
+    .base-info { flex: 1; }
+    .base-name { font-size: 0.85rem; font-weight: bold; }
+    .blue .base-name { color: #3498db; }
+    .red .base-name { color: #e74c3c; }
+    .base-hp-bar {
+      height: 12px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .base-hp-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.5s ease-out;
+    }
+    .base-hp-fill.blue-fill { background: linear-gradient(90deg, #2980b9, #3498db); }
+    .base-hp-fill.red-fill { background: linear-gradient(90deg, #c0392b, #e74c3c); }
+    .base-hp-fill.critical { background: linear-gradient(90deg, #e74c3c, #f39c12); animation: basePulse 1s infinite; }
+    .base-hp-text { font-size: 0.7rem; color: #aaa; margin-top: 2px; }
+    .base-armor { font-size: 0.65rem; color: #888; }
+    @keyframes basePulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* === 科技面板 === */
+    .tech-panel {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      padding: 10px 15px;
+      background: rgba(0,0,0,0.25);
+      flex-wrap: wrap;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .tech-side {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 0 15px;
+    }
+    .tech-side-label {
+      font-size: 0.7rem;
+      font-weight: bold;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .tech-side-label.blue { background: rgba(52,152,219,0.3); color: #3498db; }
+    .tech-side-label.red { background: rgba(231,76,60,0.3); color: #e74c3c; }
+    .tech-side.badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      min-height: 26px;
+      align-items: center;
+    }
+    .tech-badge {
+      padding: 5px 12px;
+      background: rgba(155,89,182,0.25);
+      border: 1px solid rgba(155,89,182,0.5);
+      border-radius: 6px;
+      font-size: 0.8rem;
+      color: #d4a5e8;
+      white-space: nowrap;
+    }
+    .tech-badge.blue-tech { border-color: rgba(52,152,219,0.5); background: rgba(52,152,219,0.15); color: #7ec8f0; }
+    .tech-badge.red-tech { border-color: rgba(231,76,60,0.5); background: rgba(231,76,60,0.15); color: #f08c7c; }
+    .tech-badge.active { background: rgba(155,89,182,0.5); color: #fff; }
+    .tech-divider {
+      width: 2px;
+      background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.3), transparent);
+      margin: 0 5px;
+    }
+
+    /* === 控制区 === */
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .btn {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-primary { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; }
+    .btn-green { background: linear-gradient(135deg, #27ae60, #1e8449); color: white; }
+    .btn-blue { background: linear-gradient(135deg, #3498db, #2980b9); color: white; }
+    .btn-purple { background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; }
+    .btn-yellow { background: linear-gradient(135deg, #f39c12, #d68910); color: white; }
+    .btn-warning { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; }
+    .btn-secondary { background: rgba(255,255,255,0.1); color: #aaa; }
+    .btn-small { padding: 5px 12px; font-size: 0.8rem; }
+
+    .speed-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #aaa;
+      font-size: 0.85rem;
+      background: rgba(255,255,255,0.05);
+      padding: 6px 12px;
+      border-radius: 8px;
+    }
+    .speed-control input { width: 70px; accent-color: #9b59b6; }
+
+    /* === 收入计时器 === */
+    .income-timer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #f39c12;
+      font-size: 0.85rem;
+      background: rgba(243,156,18,0.1);
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(243,156,18,0.2);
+    }
+    .income-timer .timer-bar {
+      width: 60px;
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .income-timer .timer-fill {
+      height: 100%;
+      background: #f39c12;
+      border-radius: 3px;
+      transition: width 0.1s linear;
+    }
+
+    /* === 统计条 === */
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      padding: 8px;
+      background: rgba(0,0,0,0.2);
+    }
+    .stat-item { text-align: center; }
+    .stat-value { font-size: 1.4rem; font-weight: bold; color: #f39c12; }
+    .stat-label { font-size: 0.7rem; color: #666; }
+    .stat-item.blue-stat .stat-value { color: #3498db; }
+    .stat-item.red-stat .stat-value { color: #e74c3c; }
+
+    /* === 战斗舞台 === */
+    .battle-stage {
+      position: relative;
+      max-width: 1100px;
+      margin: 10px auto;
+      padding: 0 20px;
+    }
+
+    .arena-row {
+      display: flex;
+      gap: 15px;
+    }
+
+    .army-panel {
+      flex: 1;
+      min-width: 320px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px;
+      padding: 14px;
+      position: relative;
+    }
+    .army-panel.blue { border: 1px solid rgba(52,152,219,0.2); }
+    .army-panel.red { border: 1px solid rgba(231,76,60,0.2); }
+
+    .army-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .army-title { font-size: 1rem; font-weight: bold; }
+    .blue .army-title { color: #3498db; }
+    .red .army-title { color: #e74c3c; }
+    .army-power { font-size: 0.8rem; color: #f39c12; }
+
+    /* === 单位卡片 === */
+    .unit-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      margin-bottom: 6px;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    .unit-card.attacking {
+      animation: attackPulse 0.3s ease-out;
+      box-shadow: 0 0 15px rgba(243,156,18,0.5);
+    }
+    .unit-card.hit {
+      animation: hitShake 0.3s ease-out;
+    }
+    .unit-card.dead {
+      opacity: 0.4;
+      filter: grayscale(1);
+    }
+    .unit-card.skill-active {
+      box-shadow: 0 0 20px rgba(155,89,182,0.6);
+    }
+    .unit-card.new-unit {
+      animation: newUnitGlow 0.8s ease-out;
+    }
+
+    @keyframes attackPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    @keyframes hitShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    @keyframes newUnitGlow {
+      0% { box-shadow: 0 0 20px rgba(39,174,96,0.8); }
+      100% { box-shadow: none; }
+    }
+
+    .unit-icon {
+      font-size: 1.5rem;
+      width: 40px;
+      text-align: center;
+      text-shadow: 0 0 10px rgba(255,255,255,0.3);
+    }
+    .unit-info { flex: 1; min-width: 0; }
+    .unit-name-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .unit-name { font-weight: bold; font-size: 0.9rem; }
+    .unit-tier { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; }
+    .tier-1 { background: rgba(149,165,166,0.3); color: #95a5a6; }
+    .tier-2 { background: rgba(52,152,219,0.3); color: #3498db; }
+    .tier-3 { background: rgba(243,156,18,0.3); color: #f39c12; }
+    .tier-4 { background: rgba(243,156,18,0.5); color: #f39c12; border: 1px solid #f39c12; }
+    .unit-card.hero { border: 2px solid #f39c12; box-shadow: 0 0 15px rgba(243,156,18,0.4); }
+
+    .unit-types { font-size: 0.7rem; color: #666; margin-top: 2px; }
+    .hp-container { margin-top: 4px; }
+    .hp-bar {
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .hp-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    .hp-text { font-size: 0.7rem; color: #888; margin-top: 2px; }
+
+    .mana-bar {
+      height: 3px;
+      background: rgba(155,89,182,0.2);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 2px;
+    }
+    .mana-fill {
+      height: 100%;
+      background: #9b59b6;
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+
+    .unit-stats {
+      text-align: right;
+      min-width: 50px;
+    }
+    .unit-dmg { font-size: 0.85rem; font-weight: bold; color: #e74c3c; }
+    .unit-armor { font-size: 0.7rem; color: #3498db; }
+
+    .skill-indicators {
+      display: flex;
+      gap: 3px;
+      margin-top: 4px;
+    }
+    .skill-icon {
+      font-size: 0.75rem;
+      opacity: 0.7;
+    }
+    .skill-icon.on-cooldown { opacity: 0.3; }
+
+    /* === 战斗动画层 === */
+    .animation-layer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    .damage-number {
+      position: absolute;
+      font-size: 1.2rem;
+      font-weight: bold;
+      animation: damageFloat 1s ease-out forwards;
+      text-shadow: 0 0 5px rgba(0,0,0,0.8);
+      z-index: 1001;
+    }
+    .damage-number.crit {
+      font-size: 1.5rem;
+      color: #f39c12;
+      animation: critFloat 1s ease-out forwards;
+    }
+    .damage-number.heal {
+      color: #27ae60;
+    }
+    .damage-number.evade {
+      color: #95a5a6;
+      font-size: 1rem;
+    }
+    .damage-number.base-damage {
+      font-size: 1.4rem;
+      color: #e74c3c;
+      text-shadow: 0 0 10px rgba(231,76,60,0.8);
+      animation: baseDamageFloat 1.2s ease-out forwards;
+    }
+
+    @keyframes damageFloat {
+      0% { transform: translateY(0) scale(1); opacity: 1; }
+      100% { transform: translateY(-40px) scale(0.8); opacity: 0; }
+    }
+    @keyframes critFloat {
+      0% { transform: translateY(0) scale(1.3); opacity: 1; }
+      50% { transform: translateY(-20px) scale(1.5); opacity: 1; }
+      100% { transform: translateY(-50px) scale(1); opacity: 0; }
+    }
+    @keyframes baseDamageFloat {
+      0% { transform: translateY(0) scale(1.2); opacity: 1; }
+      30% { transform: translateY(-10px) scale(1.5); opacity: 1; }
+      100% { transform: translateY(-50px) scale(0.8); opacity: 0; }
+    }
+
+    .skill-effect {
+      position: absolute;
+      pointer-events: none;
+      animation: skillEffect 0.8s ease-out forwards;
+    }
+
+    @keyframes skillEffect {
+      0% { transform: scale(0.5); opacity: 0; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+
+    /* === V3.0.9 引擎特效 === */
+    .particle {
+      position: absolute;
+      pointer-events: none;
+      border-radius: 50%;
+      animation: particleFly 0.8s ease-out forwards;
+    }
+    @keyframes particleFly {
+      0% { transform: translate(0, 0) scale(1); opacity: 1; }
+      100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+    }
+    .unit-card.stunned-overlay::after {
+      content: '💫';
+      position: absolute;
+      top: 2px; right: 2px;
+      font-size: 1.1rem;
+      animation: stunSpin 1s linear infinite;
+    }
+    .unit-card.slowed-overlay::after {
+      content: '🐌';
+      position: absolute;
+      top: 2px; right: 2px;
+      font-size: 1.1rem;
+    }
+    .unit-card.kill-streak {
+      animation: killFlash 0.5s ease-out;
+      box-shadow: 0 0 25px rgba(231,76,60,0.8);
+    }
+    @keyframes killFlash {
+      0% { filter: brightness(2); }
+      100% { filter: brightness(1); }
+    }
+    @keyframes stunSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .unit-card.dying {
+      animation: deathFade 0.6s ease-out forwards;
+    }
+    @keyframes deathFade {
+      0% { transform: scale(1); opacity: 1; filter: grayscale(0); }
+      50% { transform: scale(1.1); opacity: 0.7; filter: grayscale(0.5); }
+      100% { transform: scale(0.8); opacity: 0.3; filter: grayscale(1); }
+    }
+    .battle-flash {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 9999;
+      animation: flashFade 0.3s ease-out forwards;
+    }
+    @keyframes flashFade {
+      0% { background: rgba(255,255,255,0.3); }
+      100% { background: transparent; }
+    }
+    .kill-announce {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 2rem;
+      font-weight: bold;
+      color: #e74c3c;
+      text-shadow: 0 0 20px rgba(231,76,60,0.8);
+      pointer-events: none;
+      z-index: 9999;
+      animation: killAnnounce 1.2s ease-out forwards;
+    }
+    @keyframes killAnnounce {
+      0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+      20% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+      80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+    }
+
+    /* === 战斗日志 === */
+    .log-section {
+      max-width: 1100px;
+      margin: 10px auto 20px;
+      padding: 0 20px;
+    }
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .log-title { color: #f39c12; font-weight: bold; font-size: 0.9rem; }
+    .log-filters { display: flex; gap: 6px; }
+
+    .log-box {
+      background: rgba(0,0,0,0.4);
+      border-radius: 12px;
+      padding: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.8rem;
+      line-height: 1.8;
+    }
+    .log-round {
+      color: #555;
+      margin: 4px 0;
+      font-size: 0.75rem;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding-bottom: 2px;
+    }
+    .log-entry { padding: 1px 0; }
+    .log-blue { color: #5dade2; }
+    .log-red { color: #e57373; }
+    .log-skill { color: #9b59b6; }
+    .log-crit { color: #f39c12; font-weight: bold; }
+    .log-kill { color: #e74c3c; font-weight: bold; }
+    .log-heal { color: #27ae60; }
+    .log-evade { color: #95a5a6; font-style: italic; }
+    .log-income { color: #f39c12; }
+    .log-base { color: #e74c3c; font-weight: bold; }
+    .log-spawn { color: #27ae60; }
+    .log-tech { color: #9b59b6; }
+
+    /* === 结果横幅 === */
+    .result-banner {
+      text-align: center;
+      padding: 20px;
+      font-size: 1.5rem;
+      font-weight: bold;
+      display: none;
+      margin: 10px auto;
+      max-width: 500px;
+      border-radius: 16px;
+      animation: resultPop 0.5s ease-out;
+    }
+    @keyframes resultPop {
+      0% { transform: scale(0.8); opacity: 0; }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .result-blue { color: #3498db; background: rgba(52,152,219,0.15); border: 1px solid rgba(52,152,219,0.4); }
+    .result-red { color: #e74c3c; background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); }
+
+    /* === 相克表弹窗 === */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+    }
+    .modal-content {
+      background: #1a1a2e;
+      border-radius: 16px;
+      padding: 20px;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .modal-title { font-size: 1.2rem; color: #f39c12; }
+    .modal-close {
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    .counter-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .counter-table th, .counter-table td {
+      padding: 8px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .counter-table th { background: rgba(255,255,255,0.05); color: #f39c12; }
+    .counter-table td.positive { color: #27ae60; }
+    .counter-table td.negative { color: #e74c3c; }
+    .counter-table td.neutral { color: #888; }
+
+    /* === 兵种列表 === */
+    .unit-list-container { display: flex; gap: 20px; }
+    .unit-list-side { flex: 1; }
+    .unit-list-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 10px; }
+    .unit-list-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .unit-list-item { 
+      background: rgba(255,255,255,0.05); 
+      padding: 8px 12px; 
+      border-radius: 6px; 
+      display: flex; 
+      align-items: center; 
+      gap: 8px;
+    }
+    .unit-list-item .unit-count { color: #f39c12; font-weight: bold; }
+    .unit-list-empty { color: #666; font-style: italic; padding: 20px; text-align: center; }
+
+    /* === 科技升级浮窗 === */
+    .tech-toast {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: linear-gradient(135deg, #2c1654, #1a0a2e);
+      border: 2px solid #9b59b6;
+      border-radius: 12px;
+      padding: 12px 24px;
+      font-size: 1rem;
+      color: #fff;
+      z-index: 3000;
+      opacity: 0;
+      transition: all 0.3s ease-out;
+      box-shadow: 0 4px 20px rgba(155, 89, 182, 0.4);
+      pointer-events: none;
+    }
+    .tech-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .tech-toast-icon {
+      font-size: 1.2rem;
+      margin-right: 6px;
+    }
+    .tech-toast strong {
+      color: #f39c12;
+    }
+
+    .hero-toast {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: linear-gradient(135deg, #4a3000, #2a1800);
+      border: 2px solid #f39c12;
+      border-radius: 12px;
+      padding: 12px 24px;
+      font-size: 1rem;
+      color: #fff;
+      z-index: 3000;
+      opacity: 0;
+      transition: all 0.3s ease-out;
+      box-shadow: 0 4px 20px rgba(243, 156, 18, 0.5);
+      pointer-events: none;
+    }
+    .hero-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .hero-toast-icon {
+      font-size: 1.3rem;
+      margin-right: 6px;
+    }
+    .hero-toast strong {
+      color: #f39c12;
+    }
+
+    /* === V3.3.0 移动端增强 === */
+    @media (max-width: 700px) {
+      .arena-row { flex-direction: column; }
+      .army-panel { min-width: auto; }
+      .resource-bar { gap: 10px; }
+      .resource-panel { padding: 6px 10px; font-size: 0.85rem; }
+      .base-bar { gap: 10px; }
+      .base-panel { min-width: auto; }
+      .controls { gap: 5px; padding: 8px; }
+      .btn { padding: 8px 12px; font-size: 0.8rem; }
+      .header h1 { font-size: 1.3rem; }
+      .stats-bar { gap: 15px; flex-wrap: wrap; }
+      .stat-value { font-size: 1.1rem; }
+      .log-box { max-height: 150px; font-size: 0.75rem; }
+      .unit-card { padding: 6px 8px; gap: 8px; }
+      .unit-icon { font-size: 1.2rem; width: 32px; }
+      .unit-name { font-size: 0.8rem; }
+      .counter-table { font-size: 0.75rem; }
+      .modal-content { margin: 10px; max-width: calc(100vw - 20px); max-height: 90vh; }
+      .tech-panel { padding: 8px; }
+      .speed-control { display: none; }
+      .income-timer { font-size: 0.75rem; padding: 4px 8px; }
+      /* 触摸友好按钮 */
+      .btn { min-height: 40px; touch-action: manipulation; }
+      .btn-small { min-height: 36px; }
+    }
+    @media (max-width: 400px) {
+      .header h1 { font-size: 1.1rem; }
+      .resource-panel { gap: 6px; }
+      .resource-value { font-size: 0.9rem; }
+      .unit-stats { min-width: 40px; }
+      .unit-dmg { font-size: 0.75rem; }
+    }
+
+    /* === V3.3.0 统计面板 === */
+    .stats-modal-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stats-modal-grid .full-width {
+      grid-column: 1 / -1;
+    }
+    .stats-section {
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .stats-section h3 {
+      color: #f39c12;
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+    }
+    .stats-bar-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      font-size: 0.8rem;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .stats-bar-item .bar {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      margin: 0 8px;
+      overflow: hidden;
+    }
+    .stats-bar-item .bar-fill {
+      height: 100%;
+      border-radius: 3px;
+    }
+    .timeline-item {
+      font-size: 0.75rem;
+      padding: 2px 0;
+      color: #aaa;
+    }
+
+    /* === V3.3.0 难度选择器 === */
+    .difficulty-selector {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255,255,255,0.05);
+      padding: 4px 10px;
+      border-radius: 8px;
+    }
+    .difficulty-selector label {
+      font-size: 0.8rem;
+      color: #aaa;
+    }
+    .diff-btn {
+      padding: 4px 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      background: transparent;
+      color: #888;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .diff-btn.active {
+      background: rgba(243,156,18,0.3);
+      border-color: #f39c12;
+      color: #f39c12;
+      font-weight: bold;
+    }
+    .diff-btn:hover {
+      border-color: rgba(255,255,255,0.4);
+    }
+
+    /* === 响应式 === */
+    @media (max-width: 700px) {
+      .arena-row { flex-direction: column; }
+      .army-panel { min-width: auto; }
+      .resource-bar { gap: 10px; }
+      .resource-panel { padding: 6px 10px; }
+      .base-bar { gap: 10px; }
+      .base-panel { min-width: auto; }
+      .controls { gap: 5px; }
+      .btn { padding: 6px 12px; font-size: 0.85rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚔️ 魔兽兵种对战 V3</h1>
+  <p class="subtitle">基地攻防 · 实时收入 · 科技升级 · 英雄系统</p>
+</div>
+
+<!-- 资源条 -->
+<div class="resource-bar">
+  <div class="resource-panel blue">
+    <span class="resource-icon">💰</span>
+    <div class="resource-info">
+      <div class="resource-value" id="blueGold">500</div>
+      <div class="resource-income">+<span id="blueGoldIncome">40</span>/2秒</div>
+    </div>
+    <div class="resource-info">
+      <div class="resource-value" id="blueLumber">500</div>
+      <div class="resource-income">+<span id="blueLumberIncome">20</span>/2秒</div>
+    </div>
+    <div class="resource-label">🔵 蓝方资源</div>
+  </div>
+  <div class="resource-panel red">
+    <span class="resource-icon">💰</span>
+    <div class="resource-info">
+      <div class="resource-value" id="redGold">500</div>
+      <div class="resource-income">+<span id="redGoldIncome">40</span>/2秒</div>
+    </div>
+    <div class="resource-info">
+      <div class="resource-value" id="redLumber">500</div>
+      <div class="resource-income">+<span id="redLumberIncome">20</span>/2秒</div>
+    </div>
+    <div class="resource-label">🔴 红方资源</div>
+  </div>
+</div>
+
+<!-- 基地血量条 -->
+<div class="base-bar">
+  <div class="base-panel blue">
+    <div class="base-icon">🏰</div>
+    <div class="base-info">
+      <div class="base-name">🔵 蓝方基地</div>
+      <div class="base-hp-bar">
+        <div class="base-hp-fill blue-fill" id="blueBaseHpFill" style="width:100%"></div>
+      </div>
+      <div class="base-hp-text"><span id="blueBaseHp">3000</span>/3000 <span class="base-armor">🛡️城甲20</span></div>
+    </div>
+  </div>
+  <div class="base-panel red">
+    <div class="base-icon">🏰</div>
+    <div class="base-info">
+      <div class="base-name">🔴 红方基地</div>
+      <div class="base-hp-bar">
+        <div class="base-hp-fill red-fill" id="redBaseHpFill" style="width:100%"></div>
+      </div>
+      <div class="base-hp-text"><span id="redBaseHp">3000</span>/3000 <span class="base-armor">🛡️城甲20</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 科技面板 -->
+<div class="tech-panel">
+  <div class="tech-side">
+    <div class="tech-side-label blue">🔵 蓝方科技</div>
+    <div id="blueTechs" class="tech-side badges"></div>
+  </div>
+  <div class="tech-divider"></div>
+  <div class="tech-side">
+    <div class="tech-side-label red">🔴 红方科技</div>
+    <div id="redTechs" class="tech-side badges"></div>
+  </div>
+</div>
+
+<!-- 控制区 -->
+<div class="controls">
+  <button class="btn btn-primary" id="btnBattle" onclick="startBattle()">⚔️ 开始对战</button>
+  <button class="btn btn-secondary" id="btnPause" onclick="togglePause()" disabled>⏸️ 暂停</button>
+  <button class="btn btn-green" onclick="startTournament()">🏆 锦标赛</button>
+  <button class="btn btn-purple" onclick="showTechTree()">🔬 科技树</button>
+  <button class="btn btn-secondary" onclick="showCounterModal()">📋 相克表</button>
+  <button class="btn btn-secondary" onclick="showUnitListModal()">💂 兵种列表</button>
+  <button class="btn btn-secondary" id="btnStats" onclick="showBattleStats()" disabled>📊 战报</button>
+  <button class="btn btn-secondary" id="btnSound" onclick="toggleSound()">🔊 音效</button>
+  <div class="difficulty-selector">
+    <label>🎯</label>
+    <button class="diff-btn" data-diff="easy" onclick="setDifficulty('easy')">简单</button>
+    <button class="diff-btn active" data-diff="normal" onclick="setDifficulty('normal')">普通</button>
+    <button class="diff-btn" data-diff="hard" onclick="setDifficulty('hard')">困难</button>
+  </div>
+  <div class="speed-control">
+    <label>⚡</label>
+    <input type="range" min="50" max="800" value="300" id="speedSlider" oninput="updateSpeed()">
+  </div>
+  <div class="income-timer">
+    <span>⏱️</span>
+    <div class="timer-bar"><div class="timer-fill" id="timerFill" style="width:0%"></div></div>
+    <span id="timerText">5秒</span>
+  </div>
+</div>
+
+<!-- 统计条 -->
+<div class="stats-bar">
+  <div class="stat-item"><div class="stat-value" id="roundNum">0</div><div class="stat-label">回合</div></div>
+  <div class="stat-item"><div class="stat-value" id="blueAlive">0</div><div class="stat-label">蓝方存活</div></div>
+  <div class="stat-item"><div class="stat-value" id="redAlive">0</div><div class="stat-label">红方存活</div></div>
+  <div class="stat-item blue-stat"><div class="stat-value" id="blueDamage">0</div><div class="stat-label">蓝方伤害</div></div>
+  <div class="stat-item red-stat"><div class="stat-value" id="redDamage">0</div><div class="stat-label">红方伤害</div></div>
+  <div class="stat-item blue-stat"><div class="stat-value" id="blueKills">0</div><div class="stat-label">蓝方击杀</div></div>
+  <div class="stat-item red-stat"><div class="stat-value" id="redKills">0</div><div class="stat-label">红方击杀</div></div>
+  <div class="stat-item"><div class="stat-value" id="actionCount">0</div><div class="stat-label">行动数</div></div>
+</div>
+
+<!-- 结果横幅 -->
+<div class="result-banner" id="resultBanner"></div>
+
+<!-- 战斗舞台 -->
+<div class="battle-stage">
+  <div class="arena-row">
+    <div class="army-panel blue">
+      <div class="army-header">
+        <div class="army-title" id="blueTitle">🔵 蓝方</div>
+        <div class="army-power" id="bluePower">战力: 0</div>
+      </div>
+      <div id="blueArmy"></div>
+    </div>
+    <div class="army-panel red">
+      <div class="army-header">
+        <div class="army-title" id="redTitle">🔴 红方</div>
+        <div class="army-power" id="redPower">战力: 0</div>
+      </div>
+      <div id="redArmy"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 战斗日志 -->
+<div class="log-section">
+  <div class="log-header">
+    <div class="log-title">📜 战斗记录</div>
+  </div>
+  <div class="log-box" id="battleLog"></div>
+</div>
+
+<!-- 动画层 -->
+<div class="animation-layer" id="animationLayer"></div>
+
+<!-- 相克表弹窗 -->
+<div class="modal-overlay" id="counterModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">📋 伤害相克表</div>
+      <button class="modal-close" onclick="closeCounterModal()">×</button>
+    </div>
+    <div id="counterTableContent"></div>
+  </div>
+</div>
+
+<!-- 科技树弹窗 -->
+<div class="modal-overlay" id="techModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">🔬 科技树</div>
+      <button class="modal-close" onclick="closeTechModal()">×</button>
+    </div>
+    <div id="techTreeContent"></div>
+  </div>
+</div>
+
+<!-- 兵种列表弹窗 -->
+<div class="modal-overlay" id="unitListModal">
+  <div class="modal-content" style="max-width:800px;">
+    <div class="modal-header">
+      <div class="modal-title">💂 兵种列表</div>
+      <button class="modal-close" onclick="closeUnitListModal()">×</button>
+    </div>
+    <div id="unitListContent"></div>
+  </div>
+</div>
+
+<!-- V3.3.0 战报统计弹窗 -->
+<div class="modal-overlay" id="statsModal">
+  <div class="modal-content" style="max-width:750px;">
+    <div class="modal-header">
+      <div class="modal-title">📊 战斗统计</div>
+      <button class="modal-close" onclick="closeStatsModal()">×</button>
+    </div>
+    <div id="statsContent"></div>
+  </div>
+</div>
+
+<script src="war3_data_v2.js?v=3.3.0-20260513"></script>
+<script src="war3_expansion.js?v=3.3.0-20260513"></script>
+<script>
+// ==================== 游戏状态 ====================
+let gameSpeed = 300;
+let battleRunning = false;
+let battlePaused = false;
+let blueBrain = null;
+let redBrain = null;
+let roundNum = 0;
+let actionCount = 0;
+let blueDamage = 0;
+let redDamage = 0;
+let blueKills = 0;
+let redKills = 0;
+let incomeTimerId = null;
+let incomeTimerStart = 0;
+const INCOME_INTERVAL = 2000; // 2秒收入周期
+
+// V3.3.0 难度设定
+let gameDifficulty = "normal";
+const DIFF_NAMES = { easy: "简单", normal: "普通", hard: "困难" };
+
+function setDifficulty(diff) {
+  gameDifficulty = diff;
+  document.querySelectorAll('.diff-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.diff === diff);
+  });
+}
+
+// ==================== 英雄选择配置 ====================
+const BLUE_HERO_TYPE = "strength_hero";   // 蓝方使用力量型英雄
+const RED_HERO_TYPE = "agility_hero";     // 红方使用敏捷型英雄
+
+// ==================== 初始化 ====================
+function init() {
+  blueBrain = new AIBrainV2("blue", "balanced", BLUE_HERO_TYPE, gameDifficulty);
+  redBrain = new AIBrainV2("red", "aggressive", RED_HERO_TYPE, gameDifficulty);
+  updateResourceDisplay();
+  updateBaseDisplay();
+  renderArmy([], "blueArmy");
+  renderArmy([], "redArmy");
+  document.getElementById("blueTitle").textContent = "🔵 " + getPersonalityName(blueBrain.personality) + " | " + getHeroName(BLUE_HERO_TYPE);
+  document.getElementById("redTitle").textContent = "🔴 " + getPersonalityName(redBrain.personality) + " | " + getHeroName(RED_HERO_TYPE);
+}
+
+
+function getHeroName(type) {
+  return HEROES[type] ? HEROES[type].icon + " " + HEROES[type].name : "无";
+}
+
+function updateSpeed() {
+  gameSpeed = 851 - document.getElementById("speedSlider").value;
+}
+
+// ==================== 暂停功能 ====================
+function togglePause() {
+  battlePaused = !battlePaused;
+  const btn = document.getElementById("btnPause");
+  if (battlePaused) {
+    btn.textContent = "▶️ 继续";
+    btn.classList.remove("btn-secondary");
+    btn.classList.add("btn-warning");
+  } else {
+    btn.textContent = "⏸️ 暂停";
+    btn.classList.remove("btn-warning");
+    btn.classList.add("btn-secondary");
+  }
+}
+
+function toggleSound() {
+  const on = AudioEngine.toggle();
+  document.getElementById("btnSound").textContent = on ? "🔊 音效" : "🔇 静音";
+}
+
+// ==================== 渲染函数 ====================
+
+function renderArmy(units, containerId, animations = {}) {
+  const container = document.getElementById(containerId);
+  const living = units.filter(u => !u.dead);
+  if (!living || living.length === 0) {
+    container.innerHTML = '<p style="color:#555;text-align:center;padding:30px;font-size:0.85rem">等待部署...</p>';
+    return;
+  }
+
+  container.innerHTML = living.map((u, i) => {
+    const hpPct = u.hp / u.max_hp * 100;
+    const hpColor = hpPct > 60 ? "#27ae60" : hpPct > 30 ? "#f39c12" : "#e74c3c";
+
+    const animClass = animations[u.idx] || "";
+
+    let skillsHtml = "";
+    if (u.skills && u.skills.length > 0) {
+      skillsHtml = `<div class="skill-indicators">
+        ${u.skills.map(s => `<span class="skill-icon ${u.skillCooldowns[s] > 0 ? 'on-cooldown' : ''}">${SKILLS[s]?.icon || '?'}</span>`).join("")}
+      </div>`;
+    }
+
+    let manaBar = "";
+    if (u.maxMana > 0) {
+      manaBar = `<div class="mana-bar"><div class="mana-fill" style="width:${u.mana/u.maxMana*100}%"></div></div>`;
+    }
+
+    const isNewUnit = u._newSpawn ? "new-unit" : "";
+    if (u._newSpawn) u._newSpawn = false; // 只高亮一次
+    const isHero = u.isHero ? "hero" : "";
+    // V3.0.9 状态效果覆盖层
+    const stunnedOverlay = u.stunned > 0 ? "stunned-overlay" : "";
+    const slowedOverlay = u.slowed > 0 ? "slowed-overlay" : "";
+
+    return `
+      <div class="unit-card ${animClass} ${isNewUnit} ${isHero} ${stunnedOverlay} ${slowedOverlay}" id="unit-${u.owner}-${u.idx}">
+        <div class="unit-icon">${u.icon}</div>
+        <div class="unit-info">
+          <div class="unit-name-row">
+            <span class="unit-name">${u.name}</span>
+            <span class="unit-tier tier-${u.tier}">T${u.tier}</span>
+          </div>
+          <div class="unit-types">${ATTACK_TYPES[u.attackType]?.name || u.attackType} → ${ARMOR_TYPES[u.armorType]?.name || u.armorType}</div>
+          <div class="hp-container">
+            <div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%;background:${hpColor}"></div></div>
+            <div class="hp-text">${u.hp}/${u.max_hp}</div>
+            ${manaBar}
+          </div>
+          ${skillsHtml}
+        </div>
+        <div class="unit-stats">
+          <div class="unit-dmg">⚔️${u.damage}</div>
+          <div class="unit-armor">🛡️${u.effectiveArmor || u.armor}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function updateResourceDisplay() {
+  if (blueBrain) {
+    const s = blueBrain.resources.getState();
+    document.getElementById("blueGold").textContent = s.gold;
+    document.getElementById("blueLumber").textContent = s.lumber;
+    document.getElementById("blueGoldIncome").textContent = s.goldPerTurn;
+    document.getElementById("blueLumberIncome").textContent = s.lumberPerTurn;
+    renderTechs("blueTechs", s.techs);
+  }
+  if (redBrain) {
+    const s = redBrain.resources.getState();
+    document.getElementById("redGold").textContent = s.gold;
+    document.getElementById("redLumber").textContent = s.lumber;
+    document.getElementById("redGoldIncome").textContent = s.goldPerTurn;
+    document.getElementById("redLumberIncome").textContent = s.lumberPerTurn;
+    renderTechs("redTechs", s.techs);
+  }
+}
+
+function updateBaseDisplay() {
+  if (blueBrain) {
+    const b = blueBrain.base;
+    const pct = b.hp / b.maxHp * 100;
+    const fill = document.getElementById("blueBaseHpFill");
+    fill.style.width = pct + "%";
+    fill.className = "base-hp-fill " + (pct <= 30 ? "critical" : "blue-fill");
+    document.getElementById("blueBaseHp").textContent = Math.max(0, b.hp);
+  }
+  if (redBrain) {
+    const b = redBrain.base;
+    const pct = b.hp / b.maxHp * 100;
+    const fill = document.getElementById("redBaseHpFill");
+    fill.style.width = pct + "%";
+    fill.className = "base-hp-fill " + (pct <= 30 ? "critical" : "red-fill");
+    document.getElementById("redBaseHp").textContent = Math.max(0, b.hp);
+  }
+}
+
+function renderTechs(containerId, techs) {
+  const container = document.getElementById(containerId);
+  if (!techs || techs.length === 0) {
+    container.innerHTML = '<span style="color:#555;font-size:0.75rem">无科技</span>';
+    return;
+  }
+  const techList = Array.isArray(techs) ? techs : Array.from(techs);
+  container.innerHTML = techList.map(t =>
+    `<span class="tech-badge blue-tech active">${TECHS[t]?.name || t}</span>`
+  ).join("");
+}
+
+// ==================== 基地攻击逻辑 ====================
+function attackBase(attackers, base, side) {
+  let totalDmg = 0;
+  const details = [];
+
+  for (const unit of attackers) {
+    if (unit.dead) continue;
+    const mult = DAMAGE_TABLE[unit.attackType]?.fortified ?? 1.0;
+    const armorReduction = base.armor * 0.06 / (1 + base.armor * 0.06);
+    const dmg = Math.max(1, Math.round(unit.damage * mult * (1 - armorReduction)));
+    totalDmg += dmg;
+    details.push({ name: unit.name, icon: unit.icon, dmg, mult: mult.toFixed(1) });
+  }
+
+  base.hp -= totalDmg;
+  if (base.hp < 0) base.hp = 0;
+
+  return { totalDmg, details };
+}
+
+// ==================== 收入计时器（每2秒一次）====================
+function startIncomeTimer() {
+  incomeTimerStart = Date.now();
+  incomeTimerId = setInterval(() => {
+    if (!battleRunning) {
+      clearInterval(incomeTimerId);
+      incomeTimerId = null;
+      return;
+    }
+
+    // 添加收入（V3.3.0 难度影响收入）
+    blueBrain.addIncomeWithDifficulty();
+    redBrain.addIncomeWithDifficulty();
+
+    const logContainer = document.getElementById("battleLog");
+    const bs = blueBrain.resources.getState();
+    const rs = redBrain.resources.getState();
+    logContainer.innerHTML += `<div class="log-entry log-income">💰 收入周期！蓝方 +${bs.goldPerTurn}金+${bs.lumberPerTurn}木 | 红方 +${rs.goldPerTurn}金+${rs.lumberPerTurn}木</div>`;
+
+    // AI决策
+    const blueTurn = blueBrain.takeTurn(redBrain.army);
+    const redTurn = redBrain.takeTurn(blueBrain.army);
+
+    // 记录科技
+    if (blueTurn.techResearched) {
+      const techName = TECHS[blueTurn.techResearched]?.name || blueTurn.techResearched;
+      logContainer.innerHTML += `<div class="log-entry log-tech">🔵 研发: ${techName}</div>`;
+      showTechToast("🔵 蓝方", techName);
+    }
+    if (redTurn.techResearched) {
+      const techName = TECHS[redTurn.techResearched]?.name || redTurn.techResearched;
+      logContainer.innerHTML += `<div class="log-entry log-tech">🔴 研发: ${techName}</div>`;
+      showTechToast("🔴 红方", techName);
+    }
+
+    // 记录英雄诞生/复活
+    if (blueTurn.heroSpawned) {
+      const heroInfo = HEROES[blueTurn.heroSpawned];
+      const action = blueTurn.heroRevived ? '复活' : '出场';
+      logContainer.innerHTML += `<div class="log-entry log-hero">⭐ 🔵 ${heroInfo.icon} ${heroInfo.name} ${action}！</div>`;
+      showHeroToast("🔵", heroInfo.name + (blueTurn.heroRevived ? " 复活" : ""), heroInfo.icon);
+    }
+    if (redTurn.heroSpawned) {
+      const heroInfo = HEROES[redTurn.heroSpawned];
+      const action = redTurn.heroRevived ? '复活' : '出场';
+      logContainer.innerHTML += `<div class="log-entry log-hero">⭐ 🔴 ${heroInfo.icon} ${heroInfo.name} ${action}！</div>`;
+      showHeroToast("🔴", heroInfo.name + (redTurn.heroRevived ? " 复活" : ""), heroInfo.icon);
+    }
+
+    // 记录新单位
+    if (blueTurn.unitsProduced.length > 0) {
+      const names = blueTurn.unitsProduced.map(u => `${UNITS_V2[u]?.icon}${UNITS_V2[u]?.name}`).join(", ");
+      logContainer.innerHTML += `<div class="log-entry log-spawn">🔵 出兵: ${names}</div>`;
+      // 标记新单位
+      blueBrain.army.forEach(u => { if (!u._marked) { u._newSpawn = true; u._marked = true; }});
+    }
+    if (redTurn.unitsProduced.length > 0) {
+      const names = redTurn.unitsProduced.map(u => `${UNITS_V2[u]?.icon}${UNITS_V2[u]?.name}`).join(", ");
+      logContainer.innerHTML += `<div class="log-entry log-spawn">🔴 出兵: ${names}</div>`;
+      redBrain.army.forEach(u => { if (!u._marked) { u._newSpawn = true; u._marked = true; }});
+    }
+
+    // 清理日志
+    const entries = logContainer.querySelectorAll('.log-entry, .log-round');
+    if (entries.length > 100) {
+      for (let i = 0; i < entries.length - 100; i++) entries[i].remove();
+    }
+    logContainer.scrollTop = logContainer.scrollHeight;
+
+    // 更新UI
+    updateResourceDisplay();
+    renderArmy(blueBrain.army, "blueArmy");
+    renderArmy(redBrain.army, "redArmy");
+
+    // 重置计时器
+    incomeTimerStart = Date.now();
+  }, INCOME_INTERVAL);
+}
+
+function stopIncomeTimer() {
+  if (incomeTimerId) {
+    clearInterval(incomeTimerId);
+    incomeTimerId = null;
+  }
+}
+
+// 更新计时器UI
+function updateStatsDisplay() {
+  document.getElementById("blueDamage").textContent = blueDamage;
+  document.getElementById("redDamage").textContent = redDamage;
+  document.getElementById("blueKills").textContent = blueKills;
+  document.getElementById("redKills").textContent = redKills;
+}
+
+function updateTimerUI() {
+  if (!battleRunning || !incomeTimerStart) {
+    document.getElementById("timerFill").style.width = "0%";
+    document.getElementById("timerText").textContent = "2秒";
+    return;
+  }
+  const elapsed = Date.now() - incomeTimerStart;
+  const pct = Math.min(100, elapsed / INCOME_INTERVAL * 100);
+  const remaining = Math.max(0, Math.ceil((INCOME_INTERVAL - elapsed) / 1000));
+  document.getElementById("timerFill").style.width = pct + "%";
+  document.getElementById("timerText").textContent = remaining + "秒";
+}
+
+// ==================== 战斗系统 ====================
+async function startBattle() {
+  if (battleRunning) return;
+  battleRunning = true;
+  AudioEngine.startBattle();
+
+  // 禁用按钮
+  document.getElementById("btnBattle").disabled = true;
+  document.getElementById("btnPause").disabled = false;
+  battlePaused = false;
+  document.getElementById("btnPause").textContent = "⏸️ 暂停";
+
+  // 重置
+  roundNum = 0;
+  actionCount = 0;
+  blueDamage = 0;
+  redDamage = 0;
+  blueKills = 0;
+  redKills = 0;
+  updateStatsDisplay();
+  blueBrain = new AIBrainV2("blue", "balanced", BLUE_HERO_TYPE, gameDifficulty);
+  redBrain = new AIBrainV2("red", "aggressive", RED_HERO_TYPE, gameDifficulty);
+
+  updateResourceDisplay();
+  updateBaseDisplay();
+  renderArmy([], "blueArmy");
+  renderArmy([], "redArmy");
+  document.getElementById("blueTitle").textContent = "🔵 " + getPersonalityName(blueBrain.personality);
+  document.getElementById("redTitle").textContent = "🔴 " + getPersonalityName(redBrain.personality);
+  document.getElementById("battleLog").innerHTML = "<div style='color:#f39c12;text-align:center;padding:10px'>⚔️ 基地攻防战开始！摧毁对方基地获胜！</div>";
+  document.getElementById("resultBanner").style.display = "none";
+
+  await sleep(300);
+
+  // 第一次收入+AI决策（立即执行，让双方有初始兵力）
+  blueBrain.resources.addIncome();
+  redBrain.resources.addIncome();
+  blueBrain.takeTurn(null);
+  redBrain.takeTurn(blueBrain.army);
+
+  // 标记所有初始单位
+  blueBrain.army.forEach(u => { u._newSpawn = true; u._marked = true; });
+  redBrain.army.forEach(u => { u._newSpawn = true; u._marked = true; });
+
+  updateResourceDisplay();
+  renderArmy(blueBrain.army, "blueArmy");
+  renderArmy(redBrain.army, "redArmy");
+
+  await sleep(500);
+
+  // 启动收入计时器
+  startIncomeTimer();
+
+  // 战斗循环
+  while (battleRunning) {
+    roundNum++;
+    document.getElementById("roundNum").textContent = roundNum;
+
+    // 执行战斗回合
+    await executeRound();
+
+    // 更新基地攻击
+    const blueAlive = blueBrain.army.filter(u => !u.dead).length;
+    const redAlive = redBrain.army.filter(u => !u.dead).length;
+
+    // 基地攻防逻辑
+    const logContainer = document.getElementById("battleLog");
+
+    // 规则1: 对方全军覆没时，全力攻击基地
+    if (redAlive === 0 && blueAlive > 0) {
+      const result = attackBase(blueBrain.army, redBrain.base, "red");
+      if (result.totalDmg > 0) {
+        logContainer.innerHTML += `<div class="log-entry log-base">🏰 蓝方全军压境！攻击红方基地！造成 ${result.totalDmg} 伤害 (红方基地: ${redBrain.base.hp}/${redBrain.base.maxHp})</div>`;
+        showBaseDamage("red", result.totalDmg);
+        AudioEngine.baseHit();
+      }
+      updateBaseDisplay();
+    }
+    if (blueAlive === 0 && redAlive > 0) {
+      const result = attackBase(redBrain.army, blueBrain.base, "blue");
+      if (result.totalDmg > 0) {
+        logContainer.innerHTML += `<div class="log-entry log-base">🏰 红方全军压境！攻击蓝方基地！造成 ${result.totalDmg} 伤害 (蓝方基地: ${blueBrain.base.hp}/${blueBrain.base.maxHp})</div>`;
+        showBaseDamage("blue", result.totalDmg);
+        AudioEngine.baseHit();
+      }
+      updateBaseDisplay();
+    }
+
+    // 规则2: 持续攻城 - 每3回合，存活单位对敌方基地造成少量伤害（模拟围城压力）
+    if (roundNum % 3 === 0 && roundNum > 0) {
+      if (blueAlive > 0) {
+        const result = attackBase(blueBrain.army.filter(u => !u.dead), redBrain.base, "red");
+        const siegeDmg = Math.max(0, Math.round(result.totalDmg * 0.5)); // 围城压力：50%伤害
+        redBrain.base.hp -= siegeDmg;
+        if (redBrain.base.hp < 0) redBrain.base.hp = 0;
+        if (siegeDmg > 0) {
+          logContainer.innerHTML += `<div class="log-entry log-base">🏰 蓝方围城！对红方基地造成 ${siegeDmg} 伤害</div>`;
+          showBaseDamage("red", siegeDmg);
+          AudioEngine.baseHit();
+          blueDamage += siegeDmg;
+          updateStatsDisplay();
+        }
+        updateBaseDisplay();
+      }
+      if (redAlive > 0) {
+        const result = attackBase(redBrain.army.filter(u => !u.dead), blueBrain.base, "blue");
+        const siegeDmg = Math.max(0, Math.round(result.totalDmg * 0.5)); // 围城压力：50%伤害
+        blueBrain.base.hp -= siegeDmg;
+        if (blueBrain.base.hp < 0) blueBrain.base.hp = 0;
+        if (siegeDmg > 0) {
+          logContainer.innerHTML += `<div class="log-entry log-base">🏰 红方围城！对蓝方基地造成 ${siegeDmg} 伤害</div>`;
+          showBaseDamage("blue", siegeDmg);
+          AudioEngine.baseHit();
+          redDamage += siegeDmg;
+          updateStatsDisplay();
+        }
+        updateBaseDisplay();
+      }
+    }
+
+    // 更新统计
+    document.getElementById("blueAlive").textContent = blueAlive;
+    document.getElementById("redAlive").textContent = redAlive;
+    document.getElementById("actionCount").textContent = actionCount;
+
+    // 检查胜利条件：基地被摧毁
+    if (blueBrain.base.hp <= 0 || redBrain.base.hp <= 0) {
+      battleRunning = false;
+      stopIncomeTimer();
+      const winner = blueBrain.base.hp <= 0 ? "红方" : "蓝方";
+      const cls = blueBrain.base.hp <= 0 ? "result-red" : "result-blue";
+      showBanner(`🏆 ${winner} 摧毁敌方基地，获胜！`, cls);
+      if (winner === "蓝方") AudioEngine.victory(); else AudioEngine.defeat();
+      logContainer.innerHTML += `<div style='color:#f39c12;font-weight:bold;margin-top:10px'>🏰 ${winner} 获胜！敌方基地已被摧毁！</div>`;
+      // 战斗统计摘要
+      const winnerDamage = winner === "蓝方" ? blueDamage : redDamage;
+      const loserDamage = winner === "蓝方" ? redDamage : blueDamage;
+      const winnerKills = winner === "蓝方" ? blueKills : redKills;
+      const loserKills = winner === "蓝方" ? redKills : blueKills;
+      logContainer.innerHTML += `
+        <div style='background:rgba(0,0,0,0.3);padding:10px;margin-top:10px;border-radius:8px'>
+          <div style='color:#f39c12;font-weight:bold;margin-bottom:5px'>📊 战斗统计</div>
+          <div style='display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:0.9rem'>
+            <div style='color:#3498db'>🔵 蓝方: ${blueDamage}伤害 | ${blueKills}击杀</div>
+            <div style='color:#e74c3c'>🔴 红方: ${redDamage}伤害 | ${redKills}击杀</div>
+            <div style='grid-column:1/-1;color:#888'>⏱️ 战斗持续 ${roundNum} 回合</div>
+          </div>
+        </div>`;
+      document.getElementById("btnBattle").disabled = false;
+      document.getElementById("btnPause").disabled = true;
+      document.getElementById("btnStats").disabled = false;
+      break;
+    }
+
+    // 无时间限制，仅基地被摧毁时结束
+
+    // 暂停检查
+    while (battlePaused && battleRunning) {
+      await sleep(100);
+    }
+    
+    updateTimerUI();
+    await sleep(gameSpeed);
+  }
+}
+
+async function executeRound() {
+  const blueLiving = blueBrain.army.filter(u => !u.dead);
+  const redLiving = redBrain.army.filter(u => !u.dead);
+  const allUnits = [...blueLiving, ...redLiving]
+    .sort((a, b) => (b.effectiveSpeed || b.speed) - (a.effectiveSpeed || a.speed));
+
+  const logContainer = document.getElementById("battleLog");
+  let roundLog = `<div class="log-round">--- 第 ${roundNum} 回合 (蓝${blueLiving.length} vs 红${redLiving.length}) ---</div>`;
+
+  for (const unit of allUnits) {
+    if (unit.dead || !battleRunning) continue;
+
+    const enemies = unit.owner === "blue" ? redBrain.army : blueBrain.army;
+    const allies = unit.owner === "blue" ? blueBrain.army : redBrain.army;
+    const techs = (unit.owner === "blue" ? blueBrain : redBrain).resources.techs;
+
+    const actions = unit.act(enemies, allies, techs);
+    if (!actions) continue;
+
+    const animations = {};
+
+    for (const action of actions) {
+      actionCount++;
+
+      if (action.type === "skill") {
+        animations[unit.idx] = "skill-active";
+        playSkillEffect(unit, action.skillName);
+        if (SKILL_SOUNDS[action.skillName]) SKILL_SOUNDS[action.skillName]();
+        // V3.3.0 技能使用统计
+        const skillBrain = unit.owner === "blue" ? blueBrain : redBrain;
+        skillBrain.battleStats.skillUsage[action.skillId] = (skillBrain.battleStats.skillUsage[action.skillId] || 0) + 1;
+        const skillDmg = action.result?.damage || 0;
+        skillBrain.battleStats.damageByUnit[unit.type] = (skillBrain.battleStats.damageByUnit[unit.type] || 0) + skillDmg;
+        skillBrain.battleStats.totalDamageDealt += skillDmg;
+        roundLog += `<div class="log-entry log-skill">${unit.icon} ${unit.name} 使用 ${action.icon} ${action.skillName}！</div>`;
+      } else if (action.type === "disease_cloud") {
+        // V3.0.9: 疾病云雾特效
+        playSkillEffect(unit, "disease_cloud");
+        AudioEngine.disease();
+        roundLog += `<div class="log-entry log-skill">${unit.icon} ${unit.name} ☠️疾病云雾 感染${action.targets}个敌人！</div>`;
+      } else if (action.type === "attack") {
+        animations[unit.idx] = "attacking";
+        if (action.target) animations[action.target.idx] = "hit";
+        playAttackEffect(unit);
+        AudioEngine.attack();
+
+        let logClass = unit.owner === "blue" ? "log-blue" : "log-red";
+        let logText = `${unit.icon} ${unit.name} → ${action.target.icon} ${action.target.name}`;
+
+        if (action.evaded) {
+          logText += ` 💨闪避！`;
+          roundLog += `<div class="log-entry ${logClass} log-evade">${logText}</div>`;
+          showDamageNumber(action.target, "闪避", "evade");
+          AudioEngine.evade();
+        } else {
+          logText += ` ${action.damage} 伤害`;
+          if (action.crit) {
+            logText = `${unit.icon} ${unit.name} ⚡暴击！→ ${action.target.icon} ${action.target.name} ${action.damage} 伤害`;
+            logClass += " log-crit";
+            showDamageNumber(action.target, action.damage, "crit");
+            AudioEngine.crit();
+          } else {
+            showDamageNumber(action.target, action.damage, "damage");
+            AudioEngine.hit();
+          }
+
+          if (action.healed) {
+            logText += ` 🩸+${action.healed}`;
+            showDamageNumber(unit, `+${action.healed}`, "heal");
+            AudioEngine.heal();
+          }
+
+          if (action.killed) {
+            logText += ` 💀击杀`;
+            logClass += " log-kill";
+            // 追踪击杀统计
+            if (unit.owner === "blue") blueKills++;
+            else redKills++;
+            // V3.3.0 详细击杀统计
+            const killerBrain = unit.owner === "blue" ? blueBrain : redBrain;
+            killerBrain.battleStats.killsByUnit[unit.type] = (killerBrain.battleStats.killsByUnit[unit.type] || 0) + 1;
+            killerBrain.battleStats.killTimeline.push({ round: roundNum, killer: unit.name, victim: action.target.name });
+            // V3.0.9 击杀特效
+            playKillEffect(action.target);
+            showKillAnnounce(unit.name, action.target.name);
+            AudioEngine.kill();
+          }
+
+          roundLog += `<div class="log-entry ${logClass}">${logText}</div>`;
+          // 追踪伤害统计
+          if (unit.owner === "blue") blueDamage += action.damage || 0;
+          else redDamage += action.damage || 0;
+          // V3.3.0 详细伤害统计
+          const brain = unit.owner === "blue" ? blueBrain : redBrain;
+          brain.battleStats.damageByUnit[unit.type] = (brain.battleStats.damageByUnit[unit.type] || 0) + (action.damage || 0);
+          brain.battleStats.totalDamageDealt += action.damage || 0;
+          updateStatsDisplay();
+        }
+      }
+    }
+
+    // 更新渲染
+    renderArmy(blueBrain.army, "blueArmy", animations);
+    renderArmy(redBrain.army, "redArmy", animations);
+    await sleep(Math.min(gameSpeed / 3, 100));
+  }
+
+  logContainer.innerHTML += roundLog;
+  // 日志上限100条
+  const entries = logContainer.querySelectorAll('.log-entry, .log-round');
+  if (entries.length > 100) {
+    for (let i = 0; i < entries.length - 100; i++) entries[i].remove();
+  }
+  logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+function showDamageNumber(unit, text, type) {
+  const layer = document.getElementById("animationLayer");
+  const card = document.getElementById(`unit-${unit.owner}-${unit.idx}`);
+  if (!card) return;
+
+  const rect = card.getBoundingClientRect();
+  const div = document.createElement("div");
+  div.className = `damage-number ${type}`;
+  div.textContent = text;
+  div.style.left = rect.left + rect.width / 2 + "px";
+  div.style.top = rect.top + "px";
+
+  layer.appendChild(div);
+  setTimeout(() => div.remove(), 1000);
+}
+
+function showBaseDamage(side, totalDmg) {
+  const layer = document.getElementById("animationLayer");
+  const panel = document.querySelector(`.base-panel.${side}`);
+  if (!panel) return;
+
+  const rect = panel.getBoundingClientRect();
+  const div = document.createElement("div");
+  div.className = "damage-number base-damage";
+  div.textContent = `-${totalDmg}`;
+  div.style.left = rect.left + rect.width / 2 + "px";
+  div.style.top = rect.top + 10 + "px";
+
+  layer.appendChild(div);
+  setTimeout(() => div.remove(), 1200);
+}
+
+// ==================== V3.0.9 粒子特效系统 ====================
+function spawnParticles(x, y, color, count = 8) {
+  const layer = document.getElementById("animationLayer");
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement("div");
+    p.className = "particle";
+    const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+    const dist = 30 + Math.random() * 40;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    p.style.cssText = `left:${x}px;top:${y}px;width:${4+Math.random()*4}px;height:${4+Math.random()*4}px;background:${color};--dx:${dx}px;--dy:${dy}px;`;
+    layer.appendChild(p);
+    setTimeout(() => p.remove(), 800);
+  }
+}
+
+function playAttackEffect(unit) {
+  const card = document.getElementById(`unit-${unit.owner}-${unit.idx}`);
+  if (!card) return;
+  const rect = card.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  spawnParticles(x, y, "#f39c12", 5); // 橙色攻击粒子
+}
+
+function playSkillEffect(unit, skillName) {
+  const card = document.getElementById(`unit-${unit.owner}-${unit.idx}`);
+  if (!card) return;
+  const rect = card.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  const colors = {
+    thunder_clap: "#3498db",
+    storm_bolt: "#9b59b6",
+    chain_lightning: "#00d4ff",
+    blizzard: "#ecf0f1",
+    healing_wave: "#27ae60",
+    slow: "#8e44ad",
+    mirror_image: "#e67e22",
+    wind_walk: "#1abc9c",
+    summon_water_elemental: "#2980b9",
+    disease_cloud: "#27ae60",
+    aerial_shackle: "#95a5a6",
+    hero_ultimate: "#e74c3c"
+  };
+  const color = colors[skillName] || "#9b59b6";
+  spawnParticles(x, y, color, 12); // 技能更多粒子
+}
+
+function playKillEffect(unit) {
+  const card = document.getElementById(`unit-${unit.owner}-${unit.idx}`);
+  if (!card) return;
+  const rect = card.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  spawnParticles(x, y, "#e74c3c", 15); // 红色击杀粒子
+  card.classList.add("dying");
+  setTimeout(() => card.classList.remove("dying"), 600);
+}
+
+function showKillAnnounce(killerName, victimName) {
+  const div = document.createElement("div");
+  div.className = "kill-announce";
+  div.textContent = `💀 ${killerName} 击杀 ${victimName}`;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 1200);
+}
+
+function playBattleFlash() {
+  const div = document.createElement("div");
+  div.className = "battle-flash";
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 300);
+}
+
+// ==================== V3.1.0 Web Audio 音效系统 ====================
+const AudioEngine = (() => {
+  let ctx = null;
+  let enabled = true;
+  let volume = 0.3;
+
+  function getCtx() {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return ctx;
+  }
+
+  function play(freq, type, dur, vol = 1, freqEnd = null) {
+    if (!enabled) return;
+    try {
+      const c = getCtx();
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, c.currentTime);
+      if (freqEnd) osc.frequency.exponentialRampToValueAtTime(Math.max(freqEnd, 20), c.currentTime + dur);
+      gain.gain.setValueAtTime(vol * volume, c.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+      osc.connect(gain);
+      gain.connect(c.destination);
+      osc.start(c.currentTime);
+      osc.stop(c.currentTime + dur);
+    } catch(e) {}
+  }
+
+  function noise(dur, vol = 0.3) {
+    if (!enabled) return;
+    try {
+      const c = getCtx();
+      const bufferSize = c.sampleRate * dur;
+      const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
+      const src = c.createBufferSource();
+      src.buffer = buffer;
+      const gain = c.createGain();
+      gain.gain.setValueAtTime(vol * volume, c.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+      src.connect(gain);
+      gain.connect(c.destination);
+      src.start(c.currentTime);
+    } catch(e) {}
+  }
+
+  return {
+    attack()   { noise(0.06, 0.2); play(200, 'sawtooth', 0.06, 0.15, 80); },
+    crit()     { noise(0.1, 0.4); play(300, 'square', 0.1, 0.2, 600); play(150, 'sawtooth', 0.15, 0.15, 50); },
+    hit()      { play(400, 'sine', 0.05, 0.1, 200); },
+    evade()    { play(800, 'sine', 0.08, 0.1, 1200); },
+    heal()     { play(523, 'sine', 0.12, 0.15); setTimeout(() => play(659, 'sine', 0.12, 0.15), 80); setTimeout(() => play(784, 'sine', 0.15, 0.15), 160); },
+    kill()     { play(200, 'sawtooth', 0.15, 0.25, 60); noise(0.15, 0.3); },
+    skill()    { play(440, 'sine', 0.1, 0.15, 880); setTimeout(() => play(660, 'triangle', 0.15, 0.12), 60); },
+    thunder()  { noise(0.3, 0.5); play(80, 'sawtooth', 0.3, 0.3, 30); },
+    lightning(){ play(1200, 'sawtooth', 0.05, 0.25, 200); noise(0.08, 0.3); setTimeout(() => play(800, 'sawtooth', 0.04, 0.2, 400), 40); },
+    blizzard() { play(600, 'sine', 0.2, 0.15, 1200); noise(0.25, 0.2); },
+    heal_wave(){ play(523, 'sine', 0.1, 0.12); setTimeout(() => play(659, 'sine', 0.1, 0.12), 70); setTimeout(() => play(784, 'sine', 0.1, 0.12), 140); setTimeout(() => play(1047, 'sine', 0.15, 0.15), 210); },
+    storm_bolt(){ play(900, 'sawtooth', 0.04, 0.3, 150); noise(0.1, 0.25); },
+    mirror()   { play(600, 'triangle', 0.08, 0.12, 1200); setTimeout(() => play(800, 'triangle', 0.08, 0.1, 1600), 50); },
+    wind_walk(){ play(1000, 'sine', 0.15, 0.08, 2000); },
+    summon()   { play(200, 'sine', 0.2, 0.15, 600); play(400, 'triangle', 0.2, 0.1, 800); },
+    slow()     { play(300, 'triangle', 0.15, 0.12, 150); },
+    disease()  { play(150, 'sawtooth', 0.2, 0.1, 80); },
+    shackle()  { play(1000, 'square', 0.05, 0.15, 500); play(500, 'square', 0.1, 0.1, 250); },
+    victory()  { [0,150,300,450,600].forEach((d,i) => setTimeout(() => play([523,659,784,1047,1319][i], 'sine', 0.25, 0.2), d)); },
+    defeat()   { [0,200,400].forEach((d,i) => setTimeout(() => play([400,300,200][i], 'sine', 0.3, 0.15, [300,200,100][i]), d)); },
+    baseHit()  { noise(0.15, 0.35); play(100, 'sawtooth', 0.15, 0.2, 40); },
+    startBattle(){ play(440, 'triangle', 0.1, 0.15); setTimeout(() => play(660, 'triangle', 0.1, 0.15), 100); setTimeout(() => play(880, 'triangle', 0.2, 0.2), 200); },
+    toggle()   { enabled = !enabled; return enabled; },
+    isOn()     { return enabled; },
+    setVol(v)  { volume = Math.max(0, Math.min(1, v)); },
+    getVol()   { return volume; }
+  };
+})();
+
+// 音效-技能映射表
+const SKILL_SOUNDS = {
+  thunder_clap: () => AudioEngine.thunder(),
+  storm_bolt: () => AudioEngine.storm_bolt(),
+  chain_lightning: () => AudioEngine.lightning(),
+  blizzard: () => AudioEngine.blizzard(),
+  healing_wave: () => AudioEngine.heal_wave(),
+  slow: () => AudioEngine.slow(),
+  mirror_image: () => AudioEngine.mirror(),
+  wind_walk: () => AudioEngine.wind_walk(),
+  summon_water_elemental: () => AudioEngine.summon(),
+  disease_cloud: () => AudioEngine.disease(),
+  aerial_shackle: () => AudioEngine.shackle(),
+  hero_ultimate: () => { AudioEngine.thunder(); setTimeout(() => AudioEngine.lightning(), 150); }
+};
+
+// ==================== 锦标赛模式 ====================
+async function startTournament() {
+  if (battleRunning) return;
+  battleRunning = true;
+
+  const personalities = ["balanced", "aggressive", "defensive", "economic"];
+  const results = {};
+  personalities.forEach(p => results[p] = { wins: 0, losses: 0 });
+
+  const logEl = document.getElementById("battleLog");
+  logEl.innerHTML = "<div style='color:#f39c12;text-align:center;padding:15px'>🏆 锦标赛开始！四种AI策略基地攻防两两对决...</div>";
+
+  for (let i = 0; i < personalities.length; i++) {
+    for (let j = i + 1; j < personalities.length; j++) {
+      const p1 = personalities[i];
+      const p2 = personalities[j];
+
+      logEl.innerHTML += `<div style='color:#888;padding:6px 0;border-top:1px solid rgba(255,255,255,0.1)'>⚔️ ${getPersonalityName(p1)} vs ${getPersonalityName(p2)}</div>`;
+
+      const brain1 = new AIBrainV2("blue", p1);
+      const brain2 = new AIBrainV2("red", p2);
+
+      // 快速模拟基地攻防战
+      for (let cycle = 0; cycle < 40; cycle++) {
+        // 收入
+        brain1.resources.addIncome();
+        brain2.resources.addIncome();
+
+        // AI决策
+        brain1.takeTurn(brain2.army);
+        brain2.takeTurn(brain1.army);
+
+        // 战斗回合
+        const all = [...brain1.army.filter(u => !u.dead), ...brain2.army.filter(u => !u.dead)]
+          .sort((a, b) => b.speed - a.speed);
+
+        for (const u of all) {
+          if (u.dead) continue;
+          const enemies = u.owner === "blue" ? brain2.army : brain1.army;
+          const allies = u.owner === "blue" ? brain1.army : brain2.army;
+          u.act(enemies, allies, []);
+        }
+
+        // 基地攻击
+        const alive1 = brain1.army.filter(u => !u.dead).length;
+        const alive2 = brain2.army.filter(u => !u.dead).length;
+
+        if (alive2 === 0 && alive1 > 0) {
+          attackBase(brain1.army, brain2.base, "red");
+        }
+        if (alive1 === 0 && alive2 > 0) {
+          attackBase(brain2.army, brain1.base, "blue");
+        }
+
+        // 持续攻城 - 每3回合围城伤害（基于实际单位伤害的50%）
+        if (cycle % 3 === 0 && cycle > 0) {
+          if (alive1 > 0) {
+            const result = attackBase(brain1.army.filter(u => !u.dead), brain2.base, "red");
+            const siegeDmg = Math.max(0, Math.round(result.totalDmg * 0.5));
+            brain2.base.hp = Math.max(0, brain2.base.hp - siegeDmg);
+          }
+          if (alive2 > 0) {
+            const result = attackBase(brain2.army.filter(u => !u.dead), brain1.base, "blue");
+            const siegeDmg = Math.max(0, Math.round(result.totalDmg * 0.5));
+            brain1.base.hp = Math.max(0, brain1.base.hp - siegeDmg);
+          }
+        }
+
+        // 检查胜利
+        if (brain1.base.hp <= 0 || brain2.base.hp <= 0) break;
+      }
+
+      // 显示战斗统计
+      const battleSummary = `<div style='background:rgba(0,0,0,0.2);padding:8px;margin:5px 0;border-radius:5px;font-size:0.85rem'>
+        <div style='color:#888'>📊 ${cycle}回合 | 基地剩余: 🔵${Math.max(0,brain1.base.hp)} vs 🔴${Math.max(0,brain2.base.hp)}</div></div>`;
+      
+      if (brain1.base.hp <= 0) {
+        results[p2].wins++;
+        results[p1].losses++;
+        logEl.innerHTML += `<div style='color:#e74c3c'>🏆 ${getPersonalityName(p2)} 摧毁基地获胜！</div>` + battleSummary;
+      } else if (brain2.base.hp <= 0) {
+        results[p1].wins++;
+        results[p2].losses++;
+        logEl.innerHTML += `<div style='color:#27ae60'>🏆 ${getPersonalityName(p1)} 摧毁基地获胜！</div>` + battleSummary;
+      } else {
+        // 比较基地血量
+        if (brain1.base.hp > brain2.base.hp) {
+          results[p1].wins++;
+          results[p2].losses++;
+          logEl.innerHTML += `<div style='color:#27ae60'>🏆 ${getPersonalityName(p1)} 获胜 (基地${brain1.base.hp} vs ${brain2.base.hp})</div>` + battleSummary;
+        } else if (brain2.base.hp > brain1.base.hp) {
+          results[p2].wins++;
+          results[p1].losses++;
+          logEl.innerHTML += `<div style='color:#e74c3c'>🏆 ${getPersonalityName(p2)} 获胜 (基地${brain2.base.hp} vs ${brain1.base.hp})</div>` + battleSummary;
+        } else {
+          logEl.innerHTML += `<div style='color:#888'>⚖️ 平局</div>` + battleSummary;
+        }
+      }
+
+      await sleep(300);
+    }
+  }
+
+  // 排名
+  const sorted = Object.entries(results).sort((a, b) => b[1].wins - a[1].wins);
+  logEl.innerHTML += `<div style='color:#f39c12;font-weight:bold;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.2)'>🏆 最终排名</div>`;
+  sorted.forEach(([p, r], i) => {
+    logEl.innerHTML += `<div>${i + 1}. ${getPersonalityName(p)}: ${r.wins}胜 ${r.losses}负</div>`;
+  });
+
+  battleRunning = false;
+}
+
+// ==================== 辅助函数 ====================
+function getPersonalityName(p) {
+  const names = {
+    balanced: "均衡AI",
+    aggressive: "激进AI",
+    defensive: "防守AI",
+    economic: "经济AI"
+  };
+  return names[p] || p;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function showBanner(text, cls) {
+  const b = document.getElementById("resultBanner");
+  b.textContent = text;
+  b.className = `result-banner ${cls}`;
+  b.style.display = "block";
+}
+
+// ==================== 弹窗 ====================
+function showCounterModal() {
+  const modal = document.getElementById("counterModal");
+  const content = document.getElementById("counterTableContent");
+
+  let html = `<table class="counter-table">
+    <tr><th>攻击类型</th><th>护甲类型</th><th>伤害倍率</th></tr>`;
+
+  for (const [atk, defs] of Object.entries(DAMAGE_TABLE)) {
+    for (const [def, mult] of Object.entries(defs)) {
+      const cls = mult > 1 ? "positive" : mult < 1 ? "negative" : "neutral";
+      html += `<tr>
+        <td>${ATTACK_TYPES[atk]?.icon || ""} ${ATTACK_TYPES[atk]?.name || atk}</td>
+        <td>${ARMOR_TYPES[def]?.name || def}</td>
+        <td class="${cls}">${mult}x</td>
+      </tr>`;
+    }
+  }
+
+  html += "</table>";
+  content.innerHTML = html;
+  modal.style.display = "flex";
+}
+
+function closeCounterModal() {
+  document.getElementById("counterModal").style.display = "none";
+}
+
+function showUnitListModal() {
+  const modal = document.getElementById("unitListModal");
+  const content = document.getElementById("unitListContent");
+  
+  // 统计双方兵种
+  const getUnitList = (army, owner) => {
+    const counts = {};
+    army.filter(u => !u.dead).forEach(u => {
+      counts[u.type] = (counts[u.type] || 0) + 1;
+    });
+    return counts;
+  };
+  
+  const blueCounts = getUnitList(blueBrain?.army || [], "蓝");
+  const redCounts = getUnitList(redBrain?.army || [], "红");
+  
+  // 生成兵种列表HTML
+  const renderSide = (counts, color, colorName) => {
+    if (Object.keys(counts).length === 0) {
+      return `<div class="unit-list-empty">暂无兵种</div>`;
+    }
+    let html = `<div class="unit-list-grid">`;
+    for (const [type, count] of Object.entries(counts)) {
+      const unit = UNITS_V2[type] || HEROES[type];
+      if (!unit) continue;
+      const icon = unit.icon || "�_emoji-placeholder_�";
+      const name = unit.name || type;
+      html += `<div class="unit-list-item">${icon} <span>${name}</span> <span class="unit-count">x${count}</span></div>`;
+    }
+    html += `</div>`;
+    return html;
+  };
+  
+  const blueHtml = renderSide(blueCounts, "blue", "蓝方");
+  const redHtml = renderSide(redCounts, "red", "红方");
+  
+  let html = `
+    <div class="unit-list-container">
+      <div class="unit-list-side">
+        <div class="unit-list-title" style="color:#3498db">🔵 蓝方兵种</div>
+        ${blueHtml}
+      </div>
+      <div class="unit-list-side">
+        <div class="unit-list-title" style="color:#e74c3c">🔴 红方兵种</div>
+        ${redHtml}
+      </div>
+    </div>
+  `;
+  
+  content.innerHTML = html;
+  modal.style.display = "flex";
+}
+
+function closeUnitListModal() {
+  document.getElementById("unitListModal").style.display = "none";
+}
+
+// ==================== V3.3.0 战斗统计面板 ====================
+function showBattleStats() {
+  const modal = document.getElementById("statsModal");
+  const content = document.getElementById("statsContent");
+  
+  if (!blueBrain || !redBrain) return;
+  
+  const bs = blueBrain.getBattleStats();
+  const rs = redBrain.getBattleStats();
+  
+  // 伤害排行
+  const renderDamageRanking = (stats, color) => {
+    const sorted = Object.entries(stats.damageByUnit).sort((a, b) => b[1] - a[1]);
+    const maxDmg = sorted.length > 0 ? sorted[0][1] : 1;
+    if (sorted.length === 0) return '<div style="color:#555;font-size:0.8rem">暂无数据</div>';
+    return sorted.slice(0, 8).map(([type, dmg]) => {
+      const u = UNITS_V2[type] || HEROES[type];
+      const name = u ? u.icon + ' ' + u.name : type;
+      const pct = Math.round(dmg / maxDmg * 100);
+      const barColor = color === 'blue' ? '#3498db' : '#e74c3c';
+      return `<div class="stats-bar-item">
+        <span>${name}</span>
+        <div class="bar"><div class="bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+        <span style="color:${barColor}">${dmg}</span>
+      </div>`;
+    }).join('');
+  };
+  
+  // 击杀时间轴
+  const renderTimeline = (stats, color) => {
+    if (stats.killTimeline.length === 0) return '<div style="color:#555;font-size:0.8rem">暂无击杀</div>';
+    return stats.killTimeline.slice(-15).map(k => {
+      const c = color === 'blue' ? '#3498db' : '#e74c3c';
+      return `<div class="timeline-item" style="color:${c}">R${k.round}: ${k.killer} 💀 ${k.victim}</div>`;
+    }).join('');
+  };
+  
+  // 生产统计
+  const renderProduction = (stats) => {
+    const sorted = Object.entries(stats.unitsProduced).sort((a, b) => b[1] - a[1]);
+    if (sorted.length === 0) return '<div style="color:#555;font-size:0.8rem">暂无</div>';
+    return sorted.map(([type, count]) => {
+      const u = UNITS_V2[type] || HEROES[type];
+      const name = u ? u.icon + ' ' + u.name : type;
+      return `${name}×${count}`;
+    }).join(' | ');
+  };
+  
+  content.innerHTML = `
+    <div style="margin-bottom:12px;text-align:center;color:#888;font-size:0.85rem">
+      ⏱️ 战斗 ${roundNum} 回合 | 🎯 难度: ${DIFF_NAMES[gameDifficulty]}
+    </div>
+    <div class="stats-modal-grid">
+      <div class="stats-section">
+        <h3>🔵 蓝方伤害排行</h3>
+        ${renderDamageRanking(bs, 'blue')}
+      </div>
+      <div class="stats-section">
+        <h3>🔴 红方伤害排行</h3>
+        ${renderDamageRanking(rs, 'red')}
+      </div>
+      <div class="stats-section">
+        <h3>🔵 蓝方击杀</h3>
+        ${renderTimeline(bs, 'blue')}
+      </div>
+      <div class="stats-section">
+        <h3>🔴 红方击杀</h3>
+        ${renderTimeline(rs, 'red')}
+      </div>
+      <div class="stats-section full-width">
+        <h3>📦 兵种生产统计</h3>
+        <div style="margin-bottom:6px;color:#3498db;font-size:0.8rem">蓝方: ${renderProduction(bs)}</div>
+        <div style="color:#e74c3c;font-size:0.8rem">红方: ${renderProduction(rs)}</div>
+      </div>
+      <div class="stats-section full-width">
+        <h3>📈 总览</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.8rem">
+          <div>🔵 总伤害: <strong style="color:#3498db">${bs.totalDamageDealt}</strong></div>
+          <div>🔴 总伤害: <strong style="color:#e74c3c">${rs.totalDamageDealt}</strong></div>
+          <div>🔵 峰值军力: ${bs.peakArmySize}</div>
+          <div>🔴 峰值军力: ${rs.peakArmySize}</div>
+          <div>🔵 生产总数: ${Object.values(bs.unitsProduced).reduce((a,b)=>a+b,0)}</div>
+          <div>🔴 生产总数: ${Object.values(rs.unitsProduced).reduce((a,b)=>a+b,0)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  modal.style.display = "flex";
+}
+
+function closeStatsModal() {
+  document.getElementById("statsModal").style.display = "none";
+}
+
+function showTechTree() {
+  const modal = document.getElementById("techModal");
+  const content = document.getElementById("techTreeContent");
+
+  let html = "<div style='line-height:2'>";
+  for (const [id, tech] of Object.entries(TECHS)) {
+    const tierColors = ["#95a5a6", "#3498db", "#f39c12"];
+    html += `<div style='margin:8px 0;padding:8px;background:rgba(255,255,255,0.05);border-radius:8px;border-left:3px solid ${tierColors[tech.tier - 1]}'>`;
+    html += `<div style='font-weight:bold;color:${tierColors[tech.tier - 1]}'>${tech.name} (T${tech.tier})</div>`;
+    html += `<div style='font-size:0.85rem;color:#888'>💰 ${tech.cost} | ${tech.effect}</div>`;
+    if (tech.requires) {
+      html += `<div style='font-size:0.75rem;color:#9b59b6'>前置: ${tech.requires.map(r => TECHS[r]?.name || r).join(", ")}</div>`;
+    }
+    html += "</div>";
+  }
+  html += "</div>";
+
+  content.innerHTML = html;
+  modal.style.display = "flex";
+}
+
+function closeTechModal() {
+  document.getElementById("techModal").style.display = "none";
+}
+
+// ==================== 科技升级浮窗提示 ====================
+function showTechToast(side, techName) {
+  const toast = document.createElement("div");
+  toast.className = "tech-toast";
+  toast.innerHTML = `<span class="tech-toast-icon">🔬</span> ${side} 研发 <strong>${techName}</strong>`;
+  document.body.appendChild(toast);
+  
+  // 触发动画
+  requestAnimationFrame(() => {
+    toast.classList.add("show");
+  });
+  
+  // 3秒后移除
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// ==================== 英雄登场浮窗提示 ====================
+function showHeroToast(side, heroName, heroIcon) {
+  const toast = document.createElement("div");
+  toast.className = "hero-toast";
+  toast.innerHTML = `<span class="hero-toast-icon">${heroIcon}</span> ${side} <strong>${heroName}</strong> 出场！`;
+  document.body.appendChild(toast);
+  
+  requestAnimationFrame(() => {
+    toast.classList.add("show");
+  });
+  
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+// 点击背景关闭弹窗
+document.querySelectorAll(".modal-overlay").forEach(m => {
+  m.addEventListener("click", e => {
+    if (e.target === m) m.style.display = "none";
+  });
+});
+
+// 初始化
+init();
+</script>
+</body>
+</html>
