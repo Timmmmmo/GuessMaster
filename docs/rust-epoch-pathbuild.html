@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>末日锈纪:筑路求生 V1.0</title>
+    <title>末日锈纪:筑路求生 V1.1</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -63,11 +63,13 @@
         .level-info { font-size: 13px; font-weight: 600; }
         .level-name { font-size: 11px; color: var(--text-secondary); }
 
-        .moves-badge {
-            font-size: 13px; color: var(--accent-gold);
-            background: rgba(255,215,0,0.1);
+        .timer-badge {
+            font-size: 15px; font-weight: 700; color: #fff;
+            background: rgba(255,215,0,0.15);
             padding: 4px 12px; border-radius: 20px;
+            font-variant-numeric: tabular-nums;
         }
+        .timer-badge.urgent { color: #ff4444; background: rgba(255,50,50,0.2); }
 
         /* 游戏画布 */
         .canvas-wrap {
@@ -105,9 +107,10 @@
             border: 2px solid rgba(255,215,0,0.2);
             border-radius: 12px;
             padding: 6px;
-            cursor: pointer;
+            cursor: grab;
             transition: all 0.2s;
             position: relative;
+            touch-action: none;
         }
 
         .candidate-card:hover {
@@ -122,12 +125,13 @@
         }
 
         .candidate-card.used {
-            opacity: 0.25;
+            opacity: 0.2;
             pointer-events: none;
         }
 
         .candidate-card canvas {
             display: block;
+            pointer-events: none;
         }
 
         /* 操作按钮 */
@@ -226,7 +230,7 @@
                     <div class="level-name" id="levelName">废墟起步</div>
                 </div>
             </div>
-            <div class="moves-badge" id="movesText">剩余: 0 块</div>
+            <div class="timer-badge" id="timerText">⏱ 20s</div>
         </div>
 
         <div class="canvas-wrap">
@@ -234,12 +238,11 @@
         </div>
 
         <div class="candidates-area">
-            <div class="candidates-title">📋 可用方块 — 点击选择，点击棋盘放置</div>
+            <div class="candidates-title">📋 拖动方块到棋盘上</div>
             <div class="candidates-row" id="candidatesRow"></div>
         </div>
 
         <div class="action-bar">
-            <button class="action-btn" id="btnRotate">🔄 旋转</button>
             <button class="action-btn" id="btnUndo">↩️ 撤销</button>
             <button class="action-btn" id="btnReset">🔃 重置</button>
         </div>
@@ -255,9 +258,17 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="failModal">
+        <div class="modal-box">
+            <div class="modal-title">⏰ 时间到!</div>
+            <div class="modal-subtitle" id="failSubtitle">路还没通...</div>
+            <button class="modal-btn" id="btnRetry" style="background:linear-gradient(135deg,#ff6b6b,#ff4444)">🔄 再试一次</button>
+        </div>
+    </div>
+
     <script>
     // ============================================
-    // 末日锈纪:筑路求生 V1.0
+    // 末日锈纪:筑路求生 V1.1
     // 玩法：放置俄罗斯方块搭建起点到终点的通路
     // ============================================
 
@@ -323,6 +334,14 @@
             this.hoverPos = null;  // [r,c] grid position for preview
 
             this.won = false;
+            this.timeLeft = 20;
+            this.timerInterval = null;
+            this.dragging = false;
+            this.dragIdx = -1;
+            this.dragOffX = 0;
+            this.dragOffY = 0;
+            this.dragX = 0;
+            this.dragY = 0;
 
             this.setupUI();
             this.resize();
@@ -332,14 +351,15 @@
         }
 
         setupUI() {
-            document.getElementById('btnRotate').onclick = () => this.rotateSelected();
             document.getElementById('btnUndo').onclick = () => this.undo();
             document.getElementById('btnReset').onclick = () => this.resetLevel();
             document.getElementById('btnNext').onclick = () => this.nextLevel();
+            document.getElementById('btnRetry').onclick = () => { document.getElementById('failModal').classList.remove('show'); this.resetLevel(); };
 
             // Canvas events
-            this.canvas.addEventListener('pointermove', e => this.onPointerMove(e));
-            this.canvas.addEventListener('pointerdown', e => this.onPointerDown(e));
+            this.canvas.addEventListener('pointermove', e => this.onCanvasPointerMove(e));
+            this.canvas.addEventListener('pointerdown', e => this.onCanvasPointerDown(e));
+            this.canvas.addEventListener('pointerup', e => this.onCanvasPointerUp(e));
             this.canvas.addEventListener('pointerleave', () => { this.hoverPos = null; });
         }
 
@@ -393,10 +413,34 @@
             this.placedPieces = [];
             this.hoverPos = null;
             this.won = false;
+            this.failed = false;
 
+            this.startTimer();
             this.resize();
             this.renderCandidates();
             this.updateUI();
+        }
+
+        startTimer() {
+            clearInterval(this.timerInterval);
+            this.timeLeft = 20;
+            this.timerInterval = setInterval(() => {
+                if (this.won || this.failed) return;
+                this.timeLeft--;
+                this.updateTimerUI();
+                if (this.timeLeft <= 0) {
+                    clearInterval(this.timerInterval);
+                    this.failed = true;
+                    setTimeout(() => this.showFail(), 300);
+                }
+            }, 1000);
+            this.updateTimerUI();
+        }
+
+        updateTimerUI() {
+            const el = document.getElementById('timerText');
+            el.textContent = `⏱ ${this.timeLeft}s`;
+            el.className = 'timer-badge' + (this.timeLeft <= 5 ? ' urgent' : '');
         }
 
         resetLevel() {
@@ -413,6 +457,11 @@
             }
         }
 
+        showFail() {
+            document.getElementById('failSubtitle').textContent = `第 ${this.level+1}关失败，再试试吧！`;
+            document.getElementById('failModal').classList.add('show');
+        }
+
         // ---- 候选方块渲染 ----
         renderCandidates() {
             const row = document.getElementById('candidatesRow');
@@ -420,7 +469,11 @@
             this.candidates.forEach((cand, idx) => {
                 const card = document.createElement('div');
                 card.className = 'candidate-card' + (cand.used ? ' used' : '') + (idx === this.selectedIdx ? ' selected' : '');
-                card.onclick = () => this.selectCandidate(idx);
+                card.setAttribute('data-idx', idx);
+                // Drag events
+                card.addEventListener('pointerdown', e => this.onDragStart(e, idx));
+                // Also allow click-to-select for non-touch
+                card.onclick = () => { if (!this.dragging) this.selectCandidate(idx); };
 
                 // 小canvas预览
                 const cvs = document.createElement('canvas');
@@ -452,11 +505,49 @@
             this.renderCandidates();
         }
 
-        rotateSelected() {
-            if (this.selectedIdx < 0) return;
-            const cand = this.candidates[this.selectedIdx];
-            cand.rotation = (cand.rotation + 1) % 4;
+        // ---- 拖拽 ----
+        onDragStart(e, idx) {
+            if (this.candidates[idx].used || this.won || this.failed) return;
+            e.preventDefault();
+            this.dragging = true;
+            this.dragIdx = idx;
+            this.selectedIdx = idx;
             this.renderCandidates();
+            // 记录初始偏移
+            const card = e.currentTarget;
+            const rect = card.getBoundingClientRect();
+            this.dragOffX = e.clientX - rect.left - rect.width/2;
+            this.dragOffY = e.clientY - rect.top - rect.height/2;
+            this.dragX = e.clientX;
+            this.dragY = e.clientY;
+
+            const onMove = ev => {
+                this.dragX = ev.clientX;
+                this.dragY = ev.clientY;
+                // 实时计算hover位置
+                const canvasRect = this.canvas.getBoundingClientRect();
+                const x = ev.clientX - canvasRect.left;
+                const y = ev.clientY - canvasRect.top;
+                const gc = Math.floor(x / this.cellSize);
+                const gr = Math.floor(y / this.cellSize);
+                if (gr >= 0 && gr < this.gridSize && gc >= 0 && gc < this.gridSize) {
+                    this.hoverPos = [gr, gc];
+                } else {
+                    this.hoverPos = null;
+                }
+            };
+            const onUp = ev => {
+                document.removeEventListener('pointermove', onMove);
+                document.removeEventListener('pointerup', onUp);
+                if (this.dragging && this.hoverPos) {
+                    this.placePiece(this.hoverPos[0], this.hoverPos[1]);
+                }
+                this.dragging = false;
+                this.dragIdx = -1;
+                this.hoverPos = null;
+            };
+            document.addEventListener('pointermove', onMove);
+            document.addEventListener('pointerup', onUp);
         }
 
         getRotatedCells(cand) {
@@ -478,19 +569,28 @@
             return null;
         }
 
-        onPointerMove(e) {
+        onCanvasPointerMove(e) {
+            if (this.dragging) return;
             this.hoverPos = this.getGridPos(e);
         }
 
-        onPointerDown(e) {
+        onCanvasPointerDown(e) {
+            if (this.dragging) return;
             const pos = this.getGridPos(e);
             if (!pos) return;
-            if (this.won) return;
-            if (this.selectedIdx < 0) {
-                this.setHint('先选择一个方块');
-                return;
+            if (this.won || this.failed) return;
+            if (this.selectedIdx >= 0) {
+                this.placePiece(pos[0], pos[1]);
             }
-            this.placePiece(pos[0], pos[1]);
+        }
+
+        onCanvasPointerUp(e) {
+            if (this.dragging && this.hoverPos && this.dragIdx >= 0) {
+                this.placePiece(this.hoverPos[0], this.hoverPos[1]);
+                this.dragging = false;
+                this.dragIdx = -1;
+                this.hoverPos = null;
+            }
         }
 
         // ---- 放置逻辑 ----
@@ -532,6 +632,8 @@
 
             cand.used = true;
             this.selectedIdx = -1;
+            this.dragging = false;
+            this.dragIdx = -1;
             this.renderCandidates();
             this.updateUI();
             this.setHint('方块已放置');
@@ -630,8 +732,6 @@
         updateUI() {
             document.getElementById('levelText').textContent = `第 ${this.level+1} 关`;
             document.getElementById('levelName').textContent = LEVEL_NAMES[this.level] || '末日筑路';
-            const remaining = this.candidates.filter(c => !c.used).length;
-            document.getElementById('movesText').textContent = `剩余: ${remaining} 块`;
         }
 
         setHint(text) {
@@ -713,8 +813,29 @@
                 }
             }
 
-            // 放置预览（半透明）
-            if (this.hoverPos && this.selectedIdx >= 0 && !this.won) {
+            // 拖拽时在鼠标位置画方块
+            if (this.dragging && this.dragIdx >= 0 && !this.won && !this.failed) {
+                const cand = this.candidates[this.dragIdx];
+                const cells = this.getRotatedCells(cand);
+                let minR=Infinity,maxR=-Infinity,minC=Infinity,maxC=-Infinity;
+                for (const [r,c] of cells) { minR=Math.min(minR,r);maxR=Math.max(maxR,r);minC=Math.min(minC,c);maxC=Math.max(maxC,c); }
+                const canvasRect = this.canvas.getBoundingClientRect();
+                const offX = this.dragX - canvasRect.left;
+                const offY = this.dragY - canvasRect.top;
+                const s = this.cellSize;
+                for (const [r,c] of cells) {
+                    const px = offX + (c - (minC+maxC)/2 - 0.5) * s;
+                    const py = offY + (r - (minR+maxR)/2 - 0.5) * s;
+                    ctx.fillStyle = cand.def.color + '99';
+                    ctx.fillRect(px, py, s-1, s-1);
+                    ctx.strokeStyle = cand.def.color;
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(px, py, s-1, s-1);
+                }
+            }
+
+            // 放置预览（半透明，点击模式）
+            if (!this.dragging && this.hoverPos && this.selectedIdx >= 0 && !this.won && !this.failed) {
                 const cand = this.candidates[this.selectedIdx];
                 const cells = this.getRotatedCells(cand);
                 const [ar, ac] = this.hoverPos;
