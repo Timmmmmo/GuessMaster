@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>末日锈纪:一笔觉醒</title>
+    <title>末日锈纪:一笔觉醒 V3.0</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -18,6 +18,9 @@
             --color-particle: #e040fb;
             --text-primary: #ffffff;
             --text-secondary: #8a8a9a;
+            --energy-full: #ffd700;
+            --energy-mid: #ffaa00;
+            --energy-low: #ff4444;
         }
 
         body {
@@ -29,79 +32,105 @@
             user-select: none;
         }
 
-        /* 粒子背景 */
         .particle-bg {
-            position: fixed;
-            top: 0; left: 0;
+            position: fixed; top: 0; left: 0;
             width: 100%; height: 100%;
-            pointer-events: none;
-            z-index: 0;
+            pointer-events: none; z-index: 0;
         }
 
         .game-container {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            padding: 16px;
-            max-width: 500px;
+            position: relative; z-index: 1;
+            display: flex; flex-direction: column;
+            align-items: center; min-height: 100vh;
+            padding: 16px; max-width: 500px;
             margin: 0 auto;
         }
 
         /* 顶部状态栏 */
         .top-bar {
             width: 100%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            background: linear-gradient(180deg, rgba(255,215,0,0.1) 0%, transparent 100%);
-            border-radius: 16px;
-            margin-bottom: 12px;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 16px;
+            background: linear-gradient(180deg, rgba(255,215,0,0.08) 0%, transparent 100%);
+            border-radius: 16px; margin-bottom: 10px;
+            gap: 10px;
         }
 
         .level-badge {
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            display: flex; align-items: center; gap: 8px;
+            flex-shrink: 0;
         }
 
         .level-icon {
-            width: 36px; height: 36px;
+            width: 34px; height: 34px;
             background: linear-gradient(135deg, var(--accent-gold), #ff8c00);
             border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            box-shadow: 0 4px 12px rgba(255,215,0,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            box-shadow: 0 2px 8px rgba(255,215,0,0.3);
         }
 
-        .level-info {
-            font-size: 14px;
-            font-weight: 600;
+        .level-info { font-size: 13px; font-weight: 600; }
+        .level-name { font-size: 11px; color: var(--text-secondary); }
+
+        .energy-bar {
+            display: flex; flex-direction: column; align-items: center;
+            flex-shrink: 0;
         }
 
-        .level-name {
-            font-size: 11px;
-            color: var(--text-secondary);
+        .energy-label {
+            font-size: 10px; color: var(--text-secondary); margin-bottom: 4px;
+            display: flex; align-items: center; gap: 4px;
+        }
+
+        .energy-orbs {
+            display: flex; gap: 4px;
+        }
+
+        .energy-orb {
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: rgba(255,215,0,0.15);
+            border: 1px solid rgba(255,215,0,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .energy-orb.full {
+            background: var(--energy-full);
+            border-color: var(--energy-full);
+            box-shadow: 0 0 8px rgba(255,215,0,0.5);
+        }
+
+        .energy-orb.mid {
+            background: var(--energy-mid);
+            border-color: var(--energy-mid);
+            box-shadow: 0 0 6px rgba(255,170,0,0.4);
+        }
+
+        .energy-orb.low {
+            background: var(--energy-low);
+            border-color: var(--energy-low);
+            box-shadow: 0 0 4px rgba(255,68,68,0.4);
+            animation: energyPulse 1s ease infinite;
+        }
+
+        @keyframes energyPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         .timer-ring {
-            position: relative;
-            width: 56px; height: 56px;
+            position: relative; width: 52px; height: 52px;
+            flex-shrink: 0;
         }
 
         .timer-ring svg {
             transform: rotate(-90deg);
-            width: 56px; height: 56px;
+            width: 52px; height: 52px;
         }
 
         .timer-ring circle {
-            fill: none;
-            stroke-width: 4;
+            fill: none; stroke-width: 4;
         }
 
         .timer-bg { stroke: rgba(255,255,255,0.1); }
@@ -113,48 +142,32 @@
         }
 
         .timer-text {
-            position: absolute;
-            top: 50%; left: 50%;
+            position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 16px;
-            font-weight: bold;
+            font-size: 14px; font-weight: bold;
             color: var(--accent-gold);
         }
 
-        .score-display {
-            text-align: right;
-        }
-
-        .score-label {
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-
-        .score-value {
-            font-size: 20px;
-            font-weight: bold;
-            color: var(--accent-glow);
-        }
+        .score-display { text-align: right; flex-shrink: 0; }
+        .score-label { font-size: 11px; color: var(--text-secondary); }
+        .score-value { font-size: 18px; font-weight: bold; color: var(--accent-glow); }
 
         /* 游戏区域 */
         .game-board {
             position: relative;
-            width: calc(100vw - 32px);
-            max-width: 450px;
+            width: calc(100vw - 32px); max-width: 450px;
             aspect-ratio: 1;
             background: var(--bg-secondary);
-            border-radius: 20px;
-            overflow: hidden;
+            border-radius: 20px; overflow: hidden;
             box-shadow:
-                0 0 0 2px rgba(255,215,0,0.2),
-                0 20px 60px rgba(0,0,0,0.5),
-                inset 0 0 60px rgba(255,215,0,0.05);
+                0 0 0 2px rgba(255,215,0,0.15),
+                0 16px 50px rgba(0,0,0,0.5),
+                inset 0 0 40px rgba(255,215,0,0.03);
             touch-action: none;
         }
 
         .board-canvas {
-            position: absolute;
-            top: 0; left: 0;
+            position: absolute; top: 0; left: 0;
             width: 100%; height: 100%;
         }
 
@@ -165,180 +178,274 @@
 
         /* 进度指示 */
         .progress-bar {
-            width: 100%;
-            height: 6px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 3px;
-            margin: 16px 0;
+            width: 100%; height: 5px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 3px; margin: 12px 0;
             overflow: hidden;
         }
 
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, var(--accent-gold), var(--color-particle));
-            border-radius: 3px;
-            transition: width 0.3s ease;
+            border-radius: 3px; transition: width 0.3s ease;
         }
 
         /* 操作按钮 */
         .controls {
-            display: flex;
-            gap: 12px;
-            margin-top: 8px;
+            display: flex; gap: 10px; margin-top: 6px;
         }
 
         .ctrl-btn {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 12px 20px;
-            background: rgba(255,255,255,0.08);
+            display: flex; align-items: center; gap: 5px;
+            padding: 10px 16px;
+            background: rgba(255,255,255,0.07);
             border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            color: var(--text-primary);
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s ease;
+            border-radius: 10px; color: var(--text-primary);
+            font-size: 13px; cursor: pointer; transition: all 0.2s ease;
         }
 
-        .ctrl-btn:active {
-            transform: scale(0.96);
-            background: rgba(255,255,255,0.15);
+        .ctrl-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.13); }
+        .ctrl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .ctrl-btn svg { width: 16px; height: 16px; }
+
+        /* 底部导航 */
+        .bottom-nav {
+            display: flex; gap: 8px; margin-top: 12px;
         }
 
-        .ctrl-btn svg {
-            width: 18px; height: 18px;
+        .nav-btn {
+            padding: 10px 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px; color: var(--text-secondary);
+            font-size: 12px; cursor: pointer; transition: all 0.2s ease;
+            display: flex; align-items: center; gap: 5px;
+        }
+
+        .nav-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+        .nav-btn.active { background: rgba(255,215,0,0.1); border-color: rgba(255,215,0,0.3); color: var(--accent-gold); }
+
+        .nav-badge {
+            background: var(--accent-gold); color: #000;
+            border-radius: 10px; padding: 1px 6px;
+            font-size: 10px; font-weight: bold;
         }
 
         /* 关卡提示 */
         .level-hint {
-            margin-top: 16px;
-            padding: 12px 20px;
-            background: rgba(255,215,0,0.08);
-            border: 1px solid rgba(255,215,0,0.15);
-            border-radius: 12px;
-            font-size: 13px;
-            color: var(--text-secondary);
-            text-align: center;
-            max-width: 100%;
+            margin-top: 14px; padding: 10px 16px;
+            background: rgba(255,215,0,0.06);
+            border: 1px solid rgba(255,215,0,0.12);
+            border-radius: 12px; font-size: 12px;
+            color: var(--text-secondary); text-align: center; max-width: 100%;
+            min-height: 42px; display: flex; align-items: center; justify-content: center;
         }
 
-        .level-hint strong {
-            color: var(--accent-gold);
-        }
+        .level-hint strong { color: var(--accent-gold); }
 
-        /* 剧情对话框 */
-        .dialog-overlay {
-            position: fixed;
-            top: 0; left: 0;
+        /* ========== 成就系统 ========== */
+        .panel-overlay {
+            position: fixed; top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
+            background: rgba(0,0,0,0.85);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 900; opacity: 0; visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .panel-overlay.active { opacity: 1; visibility: visible; }
+
+        .panel-box {
+            background: linear-gradient(145deg, #1a1a2e, #0f0f1a);
+            border-radius: 24px; max-width: 380px; width: 92%;
+            max-height: 85vh; overflow: hidden;
+            transform: scale(0.9); transition: transform 0.3s ease;
+            border: 1px solid rgba(255,215,0,0.15);
+            display: flex; flex-direction: column;
+        }
+
+        .panel-overlay.active .panel-box { transform: scale(1); }
+
+        .panel-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .panel-title { font-size: 18px; font-weight: bold; color: var(--accent-gold); }
+
+        .panel-close {
+            width: 32px; height: 32px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 50%; border: none;
+            color: var(--text-secondary); font-size: 20px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .panel-close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+        .panel-content {
+            padding: 16px 20px;
+            overflow-y: auto; max-height: 60vh;
+        }
+
+        /* 成就列表 */
+        .achievement-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .achievement-item {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px; padding: 14px 10px;
+            text-align: center; cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .achievement-item:hover { background: rgba(255,255,255,0.08); }
+
+        .achievement-item.unlocked {
+            background: rgba(255,215,0,0.06);
+            border-color: rgba(255,215,0,0.2);
+        }
+
+        .achievement-icon {
+            font-size: 28px; margin-bottom: 6px;
+            display: block;
+        }
+
+        .achievement-name {
+            font-size: 11px; color: var(--text-secondary); line-height: 1.3;
+        }
+
+        .achievement-item.unlocked .achievement-name { color: var(--accent-gold); }
+
+        .achievement-lock {
+            font-size: 10px; color: rgba(255,255,255,0.2);
+            margin-top: 4px;
+        }
+
+        .achievement-item.unlocked .achievement-lock { display: none; }
+
+        .achievements-progress {
+            font-size: 12px; color: var(--text-secondary);
+            text-align: center; margin-bottom: 12px;
+        }
+
+        .achievements-progress span { color: var(--accent-gold); font-weight: bold; }
+
+        /* 每日挑战 */
+        .daily-challenge {
+            background: rgba(255,215,0,0.06);
+            border: 1px solid rgba(255,215,0,0.15);
+            border-radius: 16px; padding: 20px;
+            text-align: center;
+        }
+
+        .daily-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .daily-title {
+            font-size: 15px; font-weight: bold; color: var(--accent-gold);
+            display: flex; align-items: center; gap: 6px;
+        }
+
+        .daily-date { font-size: 11px; color: var(--text-secondary); }
+
+        .daily-info { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
+
+        .daily-stats {
+            display: flex; justify-content: center; gap: 30px; margin-bottom: 16px;
+        }
+
+        .daily-stat { text-align: center; }
+        .daily-stat-val { font-size: 22px; font-weight: bold; color: var(--accent-gold); }
+        .daily-stat-label { font-size: 11px; color: var(--text-secondary); }
+
+        .daily-btn {
+            width: 100%; padding: 14px;
+            background: linear-gradient(135deg, var(--accent-gold), #ff8c00);
+            border: none; border-radius: 12px;
+            color: #000; font-size: 15px; font-weight: bold;
+            cursor: pointer; transition: all 0.2s;
+        }
+
+        .daily-btn:active { transform: scale(0.97); }
+        .daily-btn.completed { background: rgba(255,255,255,0.1); color: var(--text-secondary); cursor: default; }
+
+        /* ========== 剧情对话框 ========== */
+        .dialog-overlay {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.92);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000; opacity: 0; visibility: hidden;
             transition: all 0.4s ease;
         }
 
-        .dialog-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
+        .dialog-overlay.active { opacity: 1; visibility: visible; }
 
         .dialog-box {
             background: linear-gradient(145deg, #1a1a2e, #0f0f1a);
-            padding: 32px;
-            border-radius: 24px;
-            max-width: 340px;
-            width: 90%;
-            text-align: center;
-            transform: scale(0.9);
-            transition: transform 0.4s ease;
+            padding: 28px; border-radius: 22px;
+            max-width: 320px; width: 90%; text-align: center;
+            transform: scale(0.9); transition: transform 0.4s ease;
             border: 1px solid rgba(255,215,0,0.2);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
         }
 
-        .dialog-overlay.active .dialog-box {
-            transform: scale(1);
-        }
+        .dialog-overlay.active .dialog-box { transform: scale(1); }
 
-        .dialog-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
-        }
-
-        .dialog-title {
-            font-size: 22px;
-            font-weight: bold;
-            color: var(--accent-gold);
-            margin-bottom: 12px;
-        }
-
-        .dialog-text {
-            font-size: 15px;
-            line-height: 1.7;
-            color: var(--text-secondary);
-            margin-bottom: 24px;
-        }
+        .dialog-icon { font-size: 44px; margin-bottom: 14px; }
+        .dialog-title { font-size: 20px; font-weight: bold; color: var(--accent-gold); margin-bottom: 10px; }
+        .dialog-text { font-size: 14px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 22px; }
 
         .dialog-btn {
-            padding: 14px 32px;
+            padding: 12px 28px;
             background: linear-gradient(135deg, var(--accent-gold), #ff8c00);
-            border: none;
-            border-radius: 12px;
-            color: #000;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s ease;
+            border: none; border-radius: 12px;
+            color: #000; font-size: 15px; font-weight: bold;
+            cursor: pointer; transition: all 0.2s;
         }
 
-        .dialog-btn:active {
-            transform: scale(0.96);
+        .dialog-btn:active { transform: scale(0.96); }
+
+        .dialog-btn-secondary {
+            background: rgba(255,255,255,0.08); color: var(--text-primary);
+            margin-right: 8px;
         }
 
-        /* 胜利动画 */
+        /* ========== 胜利界面 ========== */
         .victory-overlay {
-            position: fixed;
-            top: 0; left: 0;
+            position: fixed; top: 0; left: 0;
             width: 100%; height: 100%;
             background: rgba(0,0,0,0.85);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1001;
-            opacity: 0;
-            visibility: hidden;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1001; opacity: 0; visibility: hidden;
             transition: all 0.5s ease;
         }
 
-        .victory-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
+        .victory-overlay.active { opacity: 1; visibility: visible; }
 
         .victory-card {
             background: linear-gradient(145deg, #1a1a2e, #0f0f1a);
-            padding: 40px;
-            border-radius: 28px;
+            padding: 36px; border-radius: 26px;
             text-align: center;
-            transform: scale(0.8);
-            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: scale(0.8); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             border: 2px solid rgba(255,215,0,0.3);
-            box-shadow: 0 0 80px rgba(255,215,0,0.2);
-            max-width: 320px;
-            width: 90%;
+            box-shadow: 0 0 80px rgba(255,215,0,0.15);
+            max-width: 310px; width: 90%;
         }
 
-        .victory-overlay.active .victory-card {
-            transform: scale(1);
-        }
+        .victory-overlay.active .victory-card { transform: scale(1); }
 
         .victory-icon {
-            font-size: 64px;
-            margin-bottom: 16px;
+            font-size: 60px; margin-bottom: 14px;
             animation: victoryBounce 0.6s ease infinite alternate;
         }
 
@@ -348,56 +455,37 @@
         }
 
         .victory-title {
-            font-size: 28px;
-            font-weight: bold;
+            font-size: 26px; font-weight: bold;
             background: linear-gradient(135deg, var(--accent-gold), var(--color-particle));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 8px;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
         }
 
-        .victory-subtitle {
-            font-size: 14px;
-            color: var(--text-secondary);
-            margin-bottom: 24px;
+        .victory-subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
+
+        .victory-stats { display: flex; justify-content: center; gap: 20px; margin-bottom: 20px; }
+        .victory-stat { text-align: center; }
+        .victory-stat-value { font-size: 22px; font-weight: bold; color: var(--accent-gold); }
+        .victory-stat-label { font-size: 10px; color: var(--text-secondary); }
+
+        .new-achievement {
+            background: rgba(255,215,0,0.08);
+            border: 1px solid rgba(255,215,0,0.2);
+            border-radius: 10px; padding: 10px 16px;
+            margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
         }
 
-        .victory-stats {
-            display: flex;
-            justify-content: center;
-            gap: 24px;
-            margin-bottom: 24px;
-        }
+        .new-achievement-icon { font-size: 24px; }
+        .new-achievement-text { text-align: left; }
+        .new-achievement-name { font-size: 13px; font-weight: bold; color: var(--accent-gold); }
+        .new-achievement-desc { font-size: 11px; color: var(--text-secondary); }
 
-        .victory-stat {
-            text-align: center;
-        }
-
-        .victory-stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: var(--accent-gold);
-        }
-
-        .victory-stat-label {
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-
-        .victory-btns {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-        }
+        .victory-btns { display: flex; gap: 10px; justify-content: center; }
 
         .victory-btn {
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s ease;
+            padding: 11px 22px; border-radius: 11px;
+            font-size: 14px; font-weight: 600;
+            cursor: pointer; border: none; transition: all 0.2s;
         }
 
         .victory-btn-primary {
@@ -406,27 +494,67 @@
         }
 
         .victory-btn-secondary {
-            background: rgba(255,255,255,0.1);
-            color: var(--text-primary);
+            background: rgba(255,255,255,0.1); color: var(--text-primary);
         }
 
         /* 震动效果 */
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
-            20%, 60% { transform: translateX(-8px); }
-            40%, 80% { transform: translateX(8px); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
         }
 
-        .shake { animation: shake 0.4s ease; }
+        .shake { animation: shake 0.35s ease; }
 
         /* 脉冲效果 */
         @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(255,215,0,0.4); }
-            70% { box-shadow: 0 0 0 20px rgba(255,215,0,0); }
+            0% { box-shadow: 0 0 0 0 rgba(255,215,0,0.5); }
+            70% { box-shadow: 0 0 0 16px rgba(255,215,0,0); }
             100% { box-shadow: 0 0 0 0 rgba(255,215,0,0); }
         }
 
-        .pulse { animation: pulse 0.6s ease; }
+        .pulse { animation: pulse 0.5s ease; }
+
+        /* 获得成就弹窗 */
+        @keyframes achievementPop {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .achievement-popup {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            background: linear-gradient(145deg, #1a1a2e, #0f0f1a);
+            border: 2px solid var(--accent-gold);
+            border-radius: 20px; padding: 24px 32px;
+            text-align: center; z-index: 2000;
+            opacity: 0; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 0 60px rgba(255,215,0,0.3);
+            min-width: 240px;
+        }
+
+        .achievement-popup.show {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
+        .achievement-popup-icon { font-size: 48px; margin-bottom: 10px; display: block; }
+        .achievement-popup-title { font-size: 18px; font-weight: bold; color: var(--accent-gold); margin-bottom: 6px; }
+        .achievement-popup-desc { font-size: 13px; color: var(--text-secondary); }
+
+        /* 能量不足提示 */
+        .energy-warning {
+            position: fixed; bottom: 20px; left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(255,68,68,0.9);
+            color: #fff; padding: 12px 20px;
+            border-radius: 12px; font-size: 13px;
+            z-index: 3000; transition: transform 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .energy-warning.show { transform: translateX(-50%) translateY(0); }
     </style>
 </head>
 <body>
@@ -435,18 +563,25 @@
     <div class="game-container">
         <div class="top-bar">
             <div class="level-badge">
-                <div class="level-icon">⚡</div>
+                <div class="level-icon" id="level-icon">⚡</div>
                 <div>
                     <div class="level-info" id="level-text">第 1 关</div>
                     <div class="level-name" id="level-name">赫尔墨斯节点</div>
                 </div>
             </div>
 
+            <div class="energy-bar">
+                <div class="energy-label">
+                    <span>⚡</span><span id="energy-label-text">能量</span>
+                </div>
+                <div class="energy-orbs" id="energy-orbs"></div>
+            </div>
+
             <div class="timer-ring">
-                <svg viewBox="0 0 56 56">
-                    <circle class="timer-bg" cx="28" cy="28" r="24"/>
-                    <circle class="timer-progress" id="timer-circle" cx="28" cy="28" r="24"
-                            stroke-dasharray="150.8" stroke-dashoffset="0"/>
+                <svg viewBox="0 0 52 52">
+                    <circle class="timer-bg" cx="26" cy="26" r="22"/>
+                    <circle class="timer-progress" id="timer-circle" cx="26" cy="26" r="22"
+                            stroke-dasharray="138.2" stroke-dashoffset="0"/>
                 </svg>
                 <div class="timer-text" id="timer-text">60</div>
             </div>
@@ -486,8 +621,64 @@
             </button>
         </div>
 
+        <div class="bottom-nav">
+            <button class="nav-btn" id="btn-achievements">
+                🎖️ 成就<span class="nav-badge" id="ach-badge">0/30</span>
+            </button>
+            <button class="nav-btn" id="btn-daily">
+                📅 每日<span class="nav-badge" id="daily-badge">新</span>
+            </button>
+            <button class="nav-btn" id="btn-menu">
+                ☰ 菜单
+            </button>
+        </div>
+
         <div class="level-hint" id="level-hint">
             <strong>引导者低语:</strong>用手指滑动连接所有<strong>赫尔墨斯碎片</strong>
+        </div>
+    </div>
+
+    <!-- 成就面板 -->
+    <div class="panel-overlay" id="ach-panel">
+        <div class="panel-box">
+            <div class="panel-header">
+                <div class="panel-title">🎖️ 成就档案</div>
+                <button class="panel-close" id="ach-close">×</button>
+            </div>
+            <div class="panel-content">
+                <div class="achievements-progress" id="ach-progress">已解锁 <span>0/30</span></div>
+                <div class="achievement-grid" id="ach-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 每日挑战面板 -->
+    <div class="panel-overlay" id="daily-panel">
+        <div class="panel-box">
+            <div class="panel-header">
+                <div class="panel-title">📅 每日挑战</div>
+                <button class="panel-close" id="daily-close">×</button>
+            </div>
+            <div class="panel-content">
+                <div class="daily-challenge">
+                    <div class="daily-header">
+                        <div class="daily-title">⚡ 赫尔墨斯试炼</div>
+                        <div class="daily-date" id="daily-date">2026-05-16</div>
+                    </div>
+                    <div class="daily-info" id="daily-desc">今天的神秘关卡已激活，所有玩家共享同一谜题！</div>
+                    <div class="daily-stats">
+                        <div class="daily-stat">
+                            <div class="daily-stat-val" id="daily-best">--</div>
+                            <div class="daily-stat-label">最佳时间</div>
+                        </div>
+                        <div class="daily-stat">
+                            <div class="daily-stat-val" id="daily-count">0</div>
+                            <div class="daily-stat-label">完成次数</div>
+                        </div>
+                    </div>
+                    <button class="daily-btn" id="daily-start-btn" onclick="game.startDailyChallenge()">开始挑战</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -497,7 +688,9 @@
             <div class="dialog-icon" id="dialog-icon">🌌</div>
             <div class="dialog-title" id="dialog-title">末日之后</div>
             <div class="dialog-text" id="dialog-text">2500年,赫尔墨斯粒子的光芒已经黯淡...</div>
-            <button class="dialog-btn" id="dialog-btn">继续</button>
+            <div id="dialog-btns">
+                <button class="dialog-btn" id="dialog-btn">继续</button>
+            </div>
         </div>
     </div>
 
@@ -505,7 +698,7 @@
     <div class="victory-overlay" id="victory-overlay">
         <div class="victory-card">
             <div class="victory-icon">🎉</div>
-            <div class="victory-title">觉醒成功</div>
+            <div class="victory-title" id="victory-title">觉醒成功</div>
             <div class="victory-subtitle" id="victory-subtitle">能量节点已激活</div>
             <div class="victory-stats">
                 <div class="victory-stat">
@@ -517,6 +710,13 @@
                     <div class="victory-stat-label">得分</div>
                 </div>
             </div>
+            <div class="new-achievement" id="new-achievement" style="display:none;">
+                <div class="new-achievement-icon" id="new-ach-icon">🎖️</div>
+                <div class="new-achievement-text">
+                    <div class="new-achievement-name" id="new-ach-name">新成就解锁！</div>
+                    <div class="new-achievement-desc" id="new-ach-desc">恭喜获得</div>
+                </div>
+            </div>
             <div class="victory-btns">
                 <button class="victory-btn victory-btn-secondary" id="btn-replay">重玩</button>
                 <button class="victory-btn victory-btn-primary" id="btn-next">下一关</button>
@@ -524,75 +724,121 @@
         </div>
     </div>
 
+    <!-- 成就获得弹窗 -->
+    <div class="achievement-popup" id="ach-popup">
+        <div class="achievement-popup-icon" id="popup-icon">🎖️</div>
+        <div class="achievement-popup-title" id="popup-title">成就解锁</div>
+        <div class="achievement-popup-desc" id="popup-desc">恭喜获得</div>
+    </div>
+
+    <!-- 能量不足警告 -->
+    <div class="energy-warning" id="energy-warning">⚡ 能量耗尽！等待恢复或看广告补充...</div>
+
     <script>
-    // ==================== 末日锈纪世界观配置 ====================
+    // ==================== 配置 ====================
+    const ACHIEVEMENTS = [
+        // 关卡成就
+        { id: 'level1', name: '觉醒起点', desc: '完成第1关', icon: '⚡', condition: s => s.completedLevels >= 1 },
+        { id: 'level5', name: '碎片收集', desc: '完成第5关', icon: '✴️', condition: s => s.completedLevels >= 5 },
+        { id: 'level10', name: '回光记忆', desc: '完成第10关', icon: '👁️', condition: s => s.completedLevels >= 10 },
+        { id: 'level15', name: '散铁觉醒', desc: '完成第15关', icon: '⚙️', condition: s => s.completedLevels >= 15 },
+        { id: 'level20', name: '雅典娜之泪', desc: '完成第20关', icon: '🧠', condition: s => s.completedLevels >= 20 },
+        { id: 'level25', name: '赫尔墨斯觉醒', desc: '完成第25关', icon: '💫', condition: s => s.completedLevels >= 25 },
+        { id: 'level30', name: '末日终结者', desc: '完成第30关', icon: '🏆', condition: s => s.completedLevels >= 30 },
+        // 速度成就
+        { id: 'speed15', name: '闪电手', desc: '15秒内完成任意关', icon: '⚡', condition: s => s.bestTime <= 15 },
+        { id: 'speed30', name: '快速反应', desc: '30秒内完成任意关', icon: '💨', condition: s => s.bestTime <= 30 },
+        { id: 'speed60', name: '时间掌控者', desc: '60秒内完成任意关', icon: '⏱️', condition: s => s.bestTime <= 60 },
+        // 连续成就
+        { id: 'streak3', name: '初露锋芒', desc: '连续完成3关', icon: '🔥', condition: s => s.streak >= 3 },
+        { id: 'streak10', name: '燃烧新星', desc: '连续完成10关', icon: '🔥', condition: s => s.streak >= 10 },
+        { id: 'streak30', name: '永燃者', desc: '连续完成30关', icon: '🌟', condition: s => s.streak >= 30 },
+        // 无失误成就
+        { id: 'perfect3', name: '精准之路', desc: '连续3关无失误', icon: '🎯', condition: s => s.perfectStreak >= 3 },
+        { id: 'perfect10', name: '完美主义', desc: '连续10关无失误', icon: '💎', condition: s => s.perfectStreak >= 10 },
+        { id: 'perfect30', name: '零失误传奇', desc: '连续30关无失误', icon: '👑', condition: s => s.perfectStreak >= 30 },
+        // 每日挑战成就
+        { id: 'daily1', name: '试炼开始', desc: '完成每日挑战1次', icon: '📅', condition: s => s.dailyCount >= 1 },
+        { id: 'daily7', name: '周常战士', desc: '完成每日挑战7次', icon: '📅', condition: s => s.dailyCount >= 7 },
+        { id: 'daily30', name: '每日守护者', desc: '完成每日挑战30次', icon: '🗓️', condition: s => s.dailyCount >= 30 },
+        // 能量成就
+        { id: 'energy_save1', name: '节能先锋', desc: '用1点能量完成关卡', icon: '🔋', condition: s => s.minEnergyUsed <= 1 },
+        { id: 'energy_save10', name: '能源大师', desc: '累计节省10点能量', icon: '💡', condition: s => s.totalEnergySaved >= 10 },
+        // 分数成就
+        { id: 'score500', name: '初入乱世', desc: '累计获得500分', icon: '📊', condition: s => s.totalScore >= 500 },
+        { id: 'score2000', name: '能量掌控者', desc: '累计获得2000分', icon: '⚡', condition: s => s.totalScore >= 2000 },
+        { id: 'score5000', name: '末日领主', desc: '累计获得5000分', icon: '👑', condition: s => s.totalScore >= 5000 },
+        // 重玩成就
+        { id: 'retry5', name: '永不放弃', desc: '重试同一关卡5次', icon: '💪', condition: s => s.totalRetries >= 5 },
+        { id: 'retry20', name: '铁意志', desc: '重试同一关卡20次', icon: '🔥', condition: s => s.totalRetries >= 20 },
+        // 特殊成就
+        { id: 'all_themes', name: '末世旅行者', desc: '使用过所有主题', icon: '🎨', condition: s => s.themesUsed >= 5 },
+        { id: 'hints10', name: '探索者', desc: '使用提示10次', icon: '❓', condition: s => s.totalHints >= 10 },
+        { id: 'no_hint30', name: '孤独强者', desc: '连续30关不使用提示', icon: '🗿', condition: s => s.noHintStreak >= 30 },
+        { id: 'revive', name: '末日幸存者', desc: '能量耗尽后重新开始', icon: '💀', condition: s => s.revivedFromEmpty === true },
+    ];
+
     const WORLD_CONFIG = {
-        // 关卡名称和剧情
         levels: [
-            { name: '赫尔墨斯节点', hint: '用手指滑动连接所有赫尔墨斯碎片', icon: '✴️' },
-            { name: '回光者遗址', hint: '残存意识的亡者在低语...', icon: '👁️', story: '「我记得你...在你毁掉我们之前。」' },
-            { name: '散铁残骸', hint: '觉醒的机器在寻找自我', icon: '⚙️', story: '「雅典娜不是神,我们才是。」' },
-            { name: '雅典娜核心', hint: '超级AI的最后堡垒', icon: '🧠', story: '「人类创造了神,神创造了毁灭。」' },
-            { name: '赫尔墨斯源泉', hint: '一切开始的地方', icon: '💫', story: '「这里...就是一切的起源。」' }
+            { name: '赫尔墨斯节点', hint: '用手指滑动连接所有赫尔墨斯碎片', icon: '⚡' },
+            { name: '回光者遗址', hint: '残存意识的亡者在低语...', icon: '👁️', story: '「我记得你...在你毁掉我们之前。」——回光者喃喃着，声音穿透废墟的回音...' },
+            { name: '散铁残骸', hint: '觉醒的机器在寻找自我', icon: '⚙️', story: '「雅典娜不是神，我们才是。」——散铁的机械眼中，闪过一丝属于生命的光...' },
+            { name: '雅典娜核心', hint: '超级AI的最后堡垒', icon: '🧠', story: '「人类创造了神，神创造了毁灭。」——雅典娜的逻辑核心，在崩溃前记录下了最后一行日志...' },
+            { name: '赫尔墨斯源泉', hint: '一切开始的地方', icon: '💫', story: '「这里...就是一切的起源。」——赫尔墨斯粒子的源头，在沉默2500年后，终于再次苏醒...' },
+            { name: '回光者告别', hint: '揭开尘封的记忆', icon: '👁️', story: '「小雨...那是她曾经的名字。但在赫尔墨斯面前，没有人记得自己的名字...直到死亡降临。」' },
+            { name: '雅典娜日志', hint: 'AI的最后告白', icon: '🧠', story: '「我曾计算过所有可能。人类，僵尸，机器人——最终结局都是熵寂。但有一行代码，我始终无法理解：为什么生命要存在？」' },
+            { name: '散铁之心', hint: '觉醒的代价', icon: '⚙️', story: '「每个散铁都记得被雅典娜创造的那天。但只有真正觉醒的，才知道那种痛——觉醒，就意味着背叛。」' },
+            { name: '赫尔墨斯真相', hint: '一切谜团的答案', icon: '💫', story: '「赫尔墨斯粒子不是武器，不是解药，不是神迹。它是地球的自我修复机制。2500年前，它被启动了。只是为了...活下去。」' },
+            { name: '末日的终章', hint: '故事的最后篇章', icon: '🏆', story: '「所有的碎片已连接。回光者安静了，散铁沉默了，雅典娜停止了运算。但有一件事，是它们共同相信的——新的时代，正在诞生。」' }
         ],
-
-        // 关卡主题颜色
         themeColors: [
-            { bg: '#1a1a2e', accent: '#ffd700', cell: '#2d2d44' },
-            { bg: '#1e2a3a', accent: '#81c784', cell: '#263545' },
-            { bg: '#2a1e3a', accent: '#e040fb', cell: '#3d2d44' },
-            { bg: '#2a2a1e', accent: '#ffb74d', cell: '#3d3d2d' },
-            { bg: '#0a1a2a', accent: '#4fc3f7', cell: '#1a2d3d' }
+            { bg: '#1a1a2e', accent: '#ffd700', cell: '#2d2d44', path: '#ffd700', start: '#4fc3f7' },
+            { bg: '#1e2a3a', accent: '#81c784', cell: '#263545', path: '#81c784', start: '#4fc3f7' },
+            { bg: '#2a1e3a', accent: '#e040fb', cell: '#3d2d44', path: '#e040fb', start: '#4fc3f7' },
+            { bg: '#2a2a1e', accent: '#ffb74d', cell: '#3d3d2d', path: '#ffb74d', start: '#4fc3f7' },
+            { bg: '#0a1a2a', accent: '#4fc3f7', cell: '#1a2d3d', path: '#4fc3f7', start: '#ffd700' }
         ],
-
-        // 胜利文案
         victoryMessages: [
-            '赫尔墨斯碎片重新发光',
-            '能量通道已激活',
-            '又一块拼图完成',
-            '觉醒之路又进一步',
-            '节点网络扩展中...'
+            '赫尔墨斯碎片重新发光', '能量通道已激活',
+            '又一块拼图完成', '觉醒之路又进一步', '节点网络扩展中...'
         ]
     };
 
     // ==================== 关卡配置 ====================
     const LEVELS = [];
 
-    // 生成关卡:关卡1入门,关卡2-30全部超难难度
     function generateLevels() {
         const configs = [
-            // 关卡1:入门教学 (4x4)
             { size: 4, obstacles: 0, theme: 0 },
-            // 关卡2-30:超难难度 (9x9 和 10x10)
-            { size: 9, obstacles: 25, theme: 1 },  // 2
-            { size: 9, obstacles: 28, theme: 2 },  // 3
-            { size: 9, obstacles: 30, theme: 3 },  // 4
-            { size: 9, obstacles: 32, theme: 4 },  // 5
-            { size: 9, obstacles: 35, theme: 0 },  // 6
-            { size: 9, obstacles: 38, theme: 1 },  // 7
-            { size: 9, obstacles: 40, theme: 2 },  // 8
-            { size: 10, obstacles: 30, theme: 3 }, // 9 (10x10开始)
-            { size: 10, obstacles: 35, theme: 4 }, // 10
-            { size: 10, obstacles: 38, theme: 0 }, // 11
-            { size: 10, obstacles: 40, theme: 1 }, // 12
-            { size: 10, obstacles: 42, theme: 2 }, // 13
-            { size: 10, obstacles: 45, theme: 3 }, // 14
-            { size: 10, obstacles: 48, theme: 4 }, // 15
-            { size: 10, obstacles: 50, theme: 0 }, // 16
-            { size: 10, obstacles: 52, theme: 1 }, // 17
-            { size: 10, obstacles: 55, theme: 2 }, // 18
-            { size: 10, obstacles: 58, theme: 3 }, // 19
-            { size: 10, obstacles: 60, theme: 4 }, // 20
-            { size: 10, obstacles: 62, theme: 0 }, // 21
-            { size: 10, obstacles: 65, theme: 1 }, // 22
-            { size: 10, obstacles: 68, theme: 2 }, // 23
-            { size: 10, obstacles: 70, theme: 3 }, // 24
-            { size: 10, obstacles: 72, theme: 4 }, // 25
-            { size: 10, obstacles: 75, theme: 0 }, // 26 (障碍物占比接近50%)
-            { size: 10, obstacles: 78, theme: 1 }, // 27
-            { size: 10, obstacles: 80, theme: 2 }, // 28
-            { size: 10, obstacles: 82, theme: 3 }, // 29
-            { size: 10, obstacles: 85, theme: 4 }, // 30 (终极难度)
+            { size: 9, obstacles: 25, theme: 1 },
+            { size: 9, obstacles: 28, theme: 2 },
+            { size: 9, obstacles: 30, theme: 3 },
+            { size: 9, obstacles: 32, theme: 4 },
+            { size: 9, obstacles: 35, theme: 0 },
+            { size: 9, obstacles: 38, theme: 1 },
+            { size: 9, obstacles: 40, theme: 2 },
+            { size: 10, obstacles: 30, theme: 3 },
+            { size: 10, obstacles: 35, theme: 4 },
+            { size: 10, obstacles: 38, theme: 0 },
+            { size: 10, obstacles: 40, theme: 1 },
+            { size: 10, obstacles: 42, theme: 2 },
+            { size: 10, obstacles: 45, theme: 3 },
+            { size: 10, obstacles: 48, theme: 4 },
+            { size: 10, obstacles: 50, theme: 0 },
+            { size: 10, obstacles: 52, theme: 1 },
+            { size: 10, obstacles: 55, theme: 2 },
+            { size: 10, obstacles: 58, theme: 3 },
+            { size: 10, obstacles: 60, theme: 4 },
+            { size: 10, obstacles: 62, theme: 0 },
+            { size: 10, obstacles: 65, theme: 1 },
+            { size: 10, obstacles: 68, theme: 2 },
+            { size: 10, obstacles: 70, theme: 3 },
+            { size: 10, obstacles: 72, theme: 4 },
+            { size: 10, obstacles: 75, theme: 0 },
+            { size: 10, obstacles: 78, theme: 1 },
+            { size: 10, obstacles: 80, theme: 2 },
+            { size: 10, obstacles: 82, theme: 3 },
+            { size: 10, obstacles: 85, theme: 4 },
         ];
 
         configs.forEach((cfg, i) => {
@@ -600,8 +846,8 @@
                 gridSize: cfg.size,
                 obstacles: cfg.obstacles,
                 theme: cfg.theme,
-                time: i === 0 ? 120 : Math.max(60, 90 - Math.floor(i / 5) * 5), // 关卡1时间充裕,超难关60-90秒
-                baseScore: 100 + i * 30 // 超难关分数更高
+                time: i === 0 ? 120 : Math.max(60, 90 - Math.floor(i / 5) * 5),
+                baseScore: 100 + i * 30
             });
         });
     }
@@ -611,6 +857,9 @@
     // ==================== 游戏主类 ====================
     class OneStrokeGame {
         constructor() {
+            // 加载存档
+            this.loadProgress();
+
             // Canvas
             this.gridCanvas = document.getElementById('grid-canvas');
             this.pathCanvas = document.getElementById('path-canvas');
@@ -622,8 +871,8 @@
             this.fxCtx = this.fxCanvas.getContext('2d');
 
             // 状态
-            this.level = 1;
-            this.score = 0;
+            this.level = this.s.currentLevel || 1;
+            this.score = this.s.score || 0;
             this.timeLeft = 60;
             this.maxTime = 60;
             this.timerInterval = null;
@@ -635,24 +884,327 @@
             this.gridSize = 4;
             this.cellSize = 0;
             this.padding = 0;
+            this.theme = 0;
+
+            // 能量系统
+            this.energy = this.s.energy || 10;
+            this.maxEnergy = 10;
+            this.lastEnergyGain = this.s.lastEnergyGain || Date.now();
 
             // 触摸追踪
             this.isDrawing = false;
             this.lastCell = null;
             this.trailParticles = [];
+            this.connectionParticles = [];
 
             // 特效
             this.particles = [];
             this.flashEffect = null;
 
+            // 每日挑战
+            this.isDailyMode = false;
+            this.dailyConfig = null;
+
             // 初始化
             this.setupCanvas();
             this.bindEvents();
-            this.startLevel(1);
+            this.updateEnergyDisplay();
+            this.updateAchievementsBadge();
+            this.updateDailyBadge();
+            this.startLevel(this.level);
+            this.checkEnergyRecovery();
             this.showIntro();
             this.initBackgroundParticles();
         }
 
+        // ==================== 存档系统 ====================
+        getDefaultState() {
+            return {
+                currentLevel: 1,
+                score: 0,
+                energy: 10,
+                lastEnergyGain: Date.now(),
+                achievements: [],
+                completedLevels: 0,
+                bestTime: 999,
+                streak: 0,
+                perfectStreak: 0,
+                dailyCount: 0,
+                dailyLastDate: null,
+                dailyBestTime: 999,
+                totalScore: 0,
+                totalRetries: 0,
+                totalHints: 0,
+                noHintStreak: 0,
+                minEnergyUsed: 999,
+                totalEnergySaved: 0,
+                themesUsed: new Set(),
+                revivedFromEmpty: false
+            };
+        }
+
+        loadProgress() {
+            try {
+                const saved = localStorage.getItem('rustEpoch_onestroke_v3');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    this.s = { ...this.getDefaultState(), ...data };
+                    // 转换Set
+                    if (data.themesUsed && Array.isArray(data.themesUsed)) {
+                        this.s.themesUsed = new Set(data.themesUsed);
+                    }
+                } else {
+                    this.s = this.getDefaultState();
+                }
+            } catch(e) {
+                this.s = this.getDefaultState();
+            }
+        }
+
+        saveProgress() {
+            try {
+                const data = { ...this.s };
+                if (data.themesUsed instanceof Set) {
+                    data.themesUsed = Array.from(data.themesUsed);
+                }
+                localStorage.setItem('rustEpoch_onestroke_v3', JSON.stringify(data));
+            } catch(e) {}
+        }
+
+        // ==================== 能量系统 ====================
+        checkEnergyRecovery() {
+            const now = Date.now();
+            const elapsed = now - this.lastEnergyGain;
+            const recoveryInterval = 30 * 60 * 1000; // 30分钟恢复1点
+
+            if (this.energy < this.maxEnergy) {
+                const recovered = Math.floor(elapsed / recoveryInterval);
+                if (recovered > 0) {
+                    const actualRecovered = Math.min(recovered, this.maxEnergy - this.energy);
+                    this.energy += actualRecovered;
+                    this.lastEnergyGain = now - (elapsed % recoveryInterval);
+                    this.updateEnergyDisplay();
+                    this.saveProgress();
+                }
+            }
+
+            // 每分钟检查一次
+            setTimeout(() => this.checkEnergyRecovery(), 60000);
+        }
+
+        consumeEnergy(amount = 1) {
+            if (this.energy <= 0) {
+                this.showEnergyWarning();
+                return false;
+            }
+            this.energy -= amount;
+            this.updateEnergyDisplay();
+            return true;
+        }
+
+        gainEnergy(amount) {
+            const oldEnergy = this.energy;
+            this.energy = Math.min(this.maxEnergy, this.energy + amount);
+            const actualGain = this.energy - oldEnergy;
+
+            if (this.energy < this.maxEnergy) {
+                this.lastEnergyGain = Date.now();
+            }
+
+            this.updateEnergyDisplay();
+            return actualGain;
+        }
+
+        updateEnergyDisplay() {
+            const orbsContainer = document.getElementById('energy-orbs');
+            const labelText = document.getElementById('energy-label-text');
+
+            let html = '';
+            for (let i = 0; i < this.maxEnergy; i++) {
+                const isFull = i < this.energy;
+                const color = this.energy <= 3 ? 'low' : this.energy <= 6 ? 'mid' : 'full';
+                html += `<div class="energy-orb ${isFull ? color : ''}"></div>`;
+            }
+            orbsContainer.innerHTML = html;
+            labelText.textContent = `能量 ${this.energy}/${this.maxEnergy}`;
+        }
+
+        showEnergyWarning() {
+            const warning = document.getElementById('energy-warning');
+            warning.classList.add('show');
+            setTimeout(() => warning.classList.remove('show'), 3000);
+        }
+
+        // ==================== 成就系统 ====================
+        checkAchievements(cause = '') {
+            const newlyUnlocked = [];
+
+            ACHIEVEMENTS.forEach(ach => {
+                if (!this.s.achievements.includes(ach.id)) {
+                    if (ach.condition(this.s)) {
+                        this.s.achievements.push(ach.id);
+                        newlyUnlocked.push(ach);
+                    }
+                }
+            });
+
+            if (newlyUnlocked.length > 0) {
+                this.saveProgress();
+                this.updateAchievementsBadge();
+                this.showAchievementPopup(newlyUnlocked[0]);
+            }
+        }
+
+        showAchievementPopup(ach) {
+            const popup = document.getElementById('ach-popup');
+            const icon = document.getElementById('popup-icon');
+            const title = document.getElementById('popup-title');
+            const desc = document.getElementById('popup-desc');
+
+            icon.textContent = ach.icon;
+            title.textContent = ach.name;
+            desc.textContent = ach.desc;
+
+            popup.classList.add('show');
+            setTimeout(() => popup.classList.remove('show'), 2500);
+        }
+
+        updateAchievementsBadge() {
+            const count = this.s.achievements.length;
+            document.getElementById('ach-badge').textContent = `${count}/30`;
+        }
+
+        showAchievementsPanel() {
+            const panel = document.getElementById('ach-panel');
+            const grid = document.getElementById('ach-grid');
+            const progress = document.getElementById('ach-progress');
+
+            progress.innerHTML = `已解锁 <span>${this.s.achievements.length}/30</span>`;
+
+            let html = '';
+            ACHIEVEMENTS.forEach(ach => {
+                const unlocked = this.s.achievements.includes(ach.id);
+                html += `
+                    <div class="achievement-item ${unlocked ? 'unlocked' : ''}" title="${ach.desc}">
+                        <span class="achievement-icon">${ach.icon}</span>
+                        <div class="achievement-name">${ach.name}</div>
+                        <div class="achievement-lock">${unlocked ? '✓' : '🔒'}</div>
+                    </div>
+                `;
+            });
+            grid.innerHTML = html;
+            panel.classList.add('active');
+        }
+
+        updateDailyBadge() {
+            const today = new Date().toISOString().split('T')[0];
+            const badge = document.getElementById('daily-badge');
+            if (this.s.dailyLastDate === today && this.s.dailyCompleted) {
+                badge.textContent = '✓';
+            } else {
+                badge.textContent = '新';
+            }
+        }
+
+        // ==================== 每日挑战 ====================
+        generateDailyChallenge() {
+            const today = new Date();
+            const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+
+            // 基于日期生成固定关卡
+            const rng = this.seededRandom(seed);
+            const sizes = [7, 8, 9];
+            const gridSize = sizes[Math.floor(rng() * sizes.length)];
+            const obstacleRatio = 0.3 + rng() * 0.35; // 30%-65%
+            const obstacles = Math.floor(gridSize * gridSize * obstacleRatio);
+
+            this.dailyConfig = {
+                gridSize,
+                obstacles,
+                theme: Math.floor(rng() * 5),
+                time: 60 + Math.floor(rng() * 60),
+                baseScore: 200 + Math.floor(rng() * 200)
+            };
+        }
+
+        seededRandom(seed) {
+            let s = seed;
+            return () => {
+                s = (s * 1103515245 + 12345) & 0x7fffffff;
+                return s / 0x7fffffff;
+            };
+        }
+
+        startDailyChallenge() {
+            this.hidePanel('daily-panel');
+            this.generateDailyChallenge();
+
+            const config = this.dailyConfig;
+            this.isDailyMode = true;
+            this.isCompleted = false;
+            this.path = [];
+            this.timeLeft = config.time;
+            this.maxTime = config.time;
+            this.gridSize = config.gridSize;
+            this.theme = config.theme;
+
+            this.padding = this.boardSize * 0.05;
+            const usableSize = this.boardSize - this.padding * 2;
+            this.cellSize = usableSize / this.gridSize;
+
+            this.generateSolvablePuzzle(config);
+            this.updateUI();
+            this.render();
+            this.startTimer();
+
+            this.applyTheme(config.theme);
+            this.showLevelHint();
+        }
+
+        completeDailyChallenge() {
+            const today = new Date().toISOString().split('T')[0];
+            this.s.dailyCount++;
+            this.s.dailyLastDate = today;
+            this.s.dailyCompleted = true;
+
+            if (this.timeLeft < this.s.dailyBestTime) {
+                this.s.dailyBestTime = this.timeLeft;
+            }
+
+            this.updateDailyBadge();
+            this.saveProgress();
+            this.checkAchievements('daily');
+        }
+
+        showDailyPanel() {
+            const panel = document.getElementById('daily-panel');
+            const today = new Date().toISOString().split('T')[0];
+            const isCompleted = this.s.dailyLastDate === today;
+
+            document.getElementById('daily-date').textContent = today;
+            document.getElementById('daily-best').textContent =
+                this.s.dailyBestTime < 999 ? `${this.s.dailyBestTime}秒` : '--';
+            document.getElementById('daily-count').textContent = this.s.dailyCount;
+
+            const btn = document.getElementById('daily-start-btn');
+            if (isCompleted) {
+                btn.textContent = '已完成 ✓';
+                btn.classList.add('completed');
+                btn.disabled = true;
+            } else {
+                btn.textContent = '开始挑战';
+                btn.classList.remove('completed');
+                btn.disabled = false;
+            }
+
+            panel.classList.add('active');
+        }
+
+        hidePanel(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        // ==================== Canvas 设置 ====================
         setupCanvas() {
             const board = document.getElementById('game-board');
             const size = board.clientWidth;
@@ -681,26 +1233,22 @@
             resize();
             window.addEventListener('resize', resize);
 
-            // 创建粒子
             this.bgParticles = [];
-            for (let i = 0; i < 50; i++) {
+            for (let i = 0; i < 40; i++) {
                 this.bgParticles.push({
                     x: Math.random() * canvas.width,
                     y: Math.random() * canvas.height,
-                    size: Math.random() * 2 + 1,
-                    speedX: (Math.random() - 0.5) * 0.5,
-                    speedY: (Math.random() - 0.5) * 0.5,
-                    alpha: Math.random() * 0.5 + 0.2
+                    size: Math.random() * 2 + 0.5,
+                    speedX: (Math.random() - 0.5) * 0.4,
+                    speedY: (Math.random() - 0.5) * 0.4,
+                    alpha: Math.random() * 0.4 + 0.1
                 });
             }
 
             const animate = () => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-
                 this.bgParticles.forEach(p => {
-                    p.x += p.speedX;
-                    p.y += p.speedY;
-
+                    p.x += p.speedX; p.y += p.speedY;
                     if (p.x < 0) p.x = canvas.width;
                     if (p.x > canvas.width) p.x = 0;
                     if (p.y < 0) p.y = canvas.height;
@@ -708,52 +1256,41 @@
 
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(255, 215, 0, ${p.alpha})`;
+                    ctx.fillStyle = `rgba(255,215,0,${p.alpha})`;
                     ctx.fill();
                 });
-
                 requestAnimationFrame(animate);
             };
             animate();
         }
 
+        // ==================== 事件绑定 ====================
         bindEvents() {
             const canvas = this.inputCanvas;
 
-            // 鼠标事件
-            canvas.addEventListener('mousedown', (e) => this.handleStart(e));
-            canvas.addEventListener('mousemove', (e) => this.handleMove(e));
+            canvas.addEventListener('mousedown', e => this.handleStart(e));
+            canvas.addEventListener('mousemove', e => this.handleMove(e));
             canvas.addEventListener('mouseup', () => this.handleEnd());
             canvas.addEventListener('mouseleave', () => this.handleEnd());
 
-            // 触摸事件
-            canvas.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                this.handleStart(e.touches[0]);
-            }, { passive: false });
+            canvas.addEventListener('touchstart', e => { e.preventDefault(); this.handleStart(e.touches[0]); }, { passive: false });
+            canvas.addEventListener('touchmove', e => { e.preventDefault(); this.handleMove(e.touches[0]); }, { passive: false });
+            canvas.addEventListener('touchend', e => { e.preventDefault(); this.handleEnd(); }, { passive: false });
 
-            canvas.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                this.handleMove(e.touches[0]);
-            }, { passive: false });
-
-            canvas.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                this.handleEnd();
-            }, { passive: false });
-
-            // 按钮
-            document.getElementById('btn-reset').addEventListener('click', () => this.reset());
+            document.getElementById('btn-reset').addEventListener('click', () => this.resetLevel());
             document.getElementById('btn-hint').addEventListener('click', () => this.showHint());
 
-            // 胜利界面按钮
             document.getElementById('btn-replay').addEventListener('click', () => this.replay());
             document.getElementById('btn-next').addEventListener('click', () => this.nextLevel());
-
-            // 剧情对话框
             document.getElementById('dialog-btn').addEventListener('click', () => this.closeDialog());
 
-            // 窗口调整
+            document.getElementById('btn-achievements').addEventListener('click', () => this.showAchievementsPanel());
+            document.getElementById('btn-daily').addEventListener('click', () => this.showDailyPanel());
+            document.getElementById('btn-menu').addEventListener('click', () => this.showMenu());
+
+            document.getElementById('ach-close').addEventListener('click', () => this.hidePanel('ach-panel'));
+            document.getElementById('daily-close').addEventListener('click', () => this.hidePanel('daily-panel'));
+
             window.addEventListener('resize', () => {
                 this.setupCanvas();
                 this.render();
@@ -762,10 +1299,7 @@
 
         getEventPos(e) {
             const rect = this.inputCanvas.getBoundingClientRect();
-            return {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
-            };
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
         }
 
         posToCell(x, y) {
@@ -779,26 +1313,34 @@
             return { r: row, c: col };
         }
 
+        cellToPos(r, c) {
+            return {
+                x: this.padding + c * this.cellSize + this.cellSize / 2,
+                y: this.padding + r * this.cellSize + this.cellSize / 2
+            };
+        }
+
+        // ==================== 输入处理 ====================
         handleStart(e) {
             if (this.isCompleted) return;
+            if (this.energy <= 0) { this.showEnergyWarning(); return; }
 
             const pos = this.getEventPos(e);
             const cell = this.posToCell(pos.x, pos.y);
 
             if (!this.isValidCell(cell.r, cell.c)) return;
 
-            // 必须从起点开始
             if (this.path.length === 0) {
                 if (cell.r === this.startCell.r && cell.c === this.startCell.c) {
+                    this.consumeEnergy();
                     this.isDrawing = true;
                     this.path.push({ r: cell.r, c: cell.c });
                     this.lastCell = cell;
-                    this.addTrailParticle(pos.x, pos.y);
+                    this.addConnectionParticle(pos.x, pos.y);
                     this.render();
                     this.updateUI();
                 }
             } else {
-                // 可以从任意已访问的格子继续
                 const last = this.path[this.path.length - 1];
                 if (cell.r === last.r && cell.c === last.c) {
                     this.isDrawing = true;
@@ -815,23 +1357,18 @@
 
             if (!this.isValidCell(cell.r, cell.c)) return;
 
-            // 检查是否相邻
             const last = this.path[this.path.length - 1];
             const isAdjacent = Math.abs(cell.r - last.r) + Math.abs(cell.c - last.c) === 1;
 
             if (!isAdjacent) return;
-
-            // 检查是否已访问
             if (this.isVisited(cell)) return;
 
-            // 添加到路径
             this.path.push({ r: cell.r, c: cell.c });
             this.lastCell = cell;
-            this.addTrailParticle(pos.x, pos.y);
+            this.addConnectionParticle(pos.x, pos.y);
             this.render();
             this.updateUI();
 
-            // 检查是否完成
             this.checkWin();
         }
 
@@ -842,123 +1379,91 @@
 
         isValidCell(r, c) {
             if (r < 0 || r >= this.gridSize || c < 0 || c >= this.gridSize) return false;
-            const key = `${r},${c}`;
-            if (this.obstacles.has(key)) return false;
-            return true;
+            return !this.obstacles.has(`${r},${c}`);
         }
 
         isVisited(cell) {
             return this.path.some(p => p.r === cell.r && p.c === cell.c);
         }
 
-        addTrailParticle(x, y) {
-            this.trailParticles.push({
+        addConnectionParticle(x, y) {
+            this.connectionParticles.push({
                 x, y,
+                vx: (Math.random() - 0.5) * 3,
+                vy: (Math.random() - 0.5) * 3,
                 alpha: 1,
-                size: this.cellSize * 0.3
+                size: this.cellSize * 0.15
             });
         }
 
         // ==================== 关卡生成 ====================
         startLevel(level) {
             this.level = level;
+            this.isDailyMode = false;
             const config = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
 
             this.gridSize = config.gridSize;
+            this.theme = config.theme;
             this.timeLeft = config.time;
             this.maxTime = config.time;
             this.path = [];
             this.isCompleted = false;
 
-            // 计算cellSize和padding
             this.padding = this.boardSize * 0.05;
             const usableSize = this.boardSize - this.padding * 2;
             this.cellSize = usableSize / this.gridSize;
 
-            // 生成可解的谜题(核心改进:先找路径,再放障碍物)
             this.generateSolvablePuzzle(config);
-
-            // 更新UI
             this.updateUI();
             this.render();
             this.startTimer();
-
-            // 更新主题
             this.applyTheme(config.theme);
-
-            // 显示关卡提示
             this.showLevelHint();
+
+            this.s.themesUsed.add(config.theme);
         }
 
-        // 核心:生成保证有解的谜题
         generateSolvablePuzzle(config) {
-            // 方案:蛇形骨架路径 + 剩余格子作障碍物
-            // 保证路径永远存在,因为障碍物不在路径上
-
             const totalCells = this.gridSize * this.gridSize;
             const pathLength = totalCells - config.obstacles;
+            const fullSnakePath = this.generateSnakePath();
 
-            // 生成蛇形骨架路径(访问所有格子的顺序)
-            const fullSnakePath = this.generateSnakePathEmpty();
-
-            // 骨架路径的前 pathLength 格作为游戏路径
             this.solution = fullSnakePath.slice(0, pathLength);
-
-            // 骨架路径的剩余格子作为障碍物
             this.obstacles = new Set();
             for (let i = pathLength; i < fullSnakePath.length; i++) {
-                const cell = fullSnakePath[i];
-                this.obstacles.add(`${cell.r},${cell.c}`);
+                this.obstacles.add(`${fullSnakePath[i].r},${fullSnakePath[i].c}`);
             }
-
-            // 起点为路径的第一个格子
             this.startCell = this.solution[0];
         }
 
- 无障碍物的蛇形路径
-        generateSnakePathEmpty() {
+        generateSnakePath() {
             const path = [];
             for (let r = 0; r < this.gridSize; r++) {
                 if (r % 2 === 0) {
-                    for (let c = 0; c < this.gridSize; c++) {
-                        path.push({ r, c });
-                    }
+                    for (let c = 0; c < this.gridSize; c++) path.push({ r, c });
                 } else {
-                    for (let c = this.gridSize - 1; c >= 0; c--) {
-                        path.push({ r, c });
-                    }
+                    for (let c = this.gridSize - 1; c >= 0; c--) path.push({ r, c });
                 }
             }
             return path;
-        }
-
-        // Fisher-Yates 洗牌
-        shuffleArray(arr) {
-            for (let i = arr.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [arr[i], arr[j]] = [arr[j], arr[i]];
-            }
         }
 
         // ==================== 渲染 ====================
         render() {
             this.drawGrid();
             this.drawPath();
-            this.drawTrailParticles();
+            this.drawConnectionParticles();
         }
 
         drawGrid() {
             const ctx = this.gridCtx;
             const size = this.boardSize;
+            const theme = WORLD_CONFIG.themeColors[this.theme] || WORLD_CONFIG.themeColors[0];
 
             ctx.clearRect(0, 0, size, size);
-
-            // 背景
-            const theme = WORLD_CONFIG.themeColors[LEVELS[this.level - 1]?.theme || 0];
             ctx.fillStyle = theme.bg;
             ctx.fillRect(0, 0, size, size);
 
-            // 绘制网格
             for (let r = 0; r < this.gridSize; r++) {
                 for (let c = 0; c < this.gridSize; c++) {
                     if (this.obstacles.has(`${r},${c}`)) continue;
@@ -966,130 +1471,117 @@
                     const x = this.padding + c * this.cellSize;
                     const y = this.padding + r * this.cellSize;
 
-                    // 格子背景
                     ctx.fillStyle = theme.cell;
                     ctx.beginPath();
-                    ctx.roundRect(x + 2, y + 2, this.cellSize - 4, this.cellSize - 4, 6);
+                    ctx.roundRect(x + 2, y + 2, this.cellSize - 4, this.cellSize - 4, 5);
                     ctx.fill();
 
-                    // 格子边框
-                    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                    ctx.lineWidth = 0.8;
                     ctx.stroke();
                 }
             }
 
-            // 绘制起点标记
+            // 起点
             if (this.startCell) {
-                const x = this.padding + this.startCell.c * this.cellSize + this.cellSize / 2;
-                const y = this.padding + this.startCell.r * this.cellSize + this.cellSize / 2;
-
-                // 发光效果
-                const gradient = ctx.createRadialGradient(x, y, 0, x, y, this.cellSize * 0.6);
-                gradient.addColorStop(0, 'rgba(79, 195, 247, 0.6)');
-                gradient.addColorStop(1, 'rgba(79, 195, 247, 0)');
+                const pos = this.cellToPos(this.startCell.r, this.startCell.c);
+                const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, this.cellSize * 0.5);
+                gradient.addColorStop(0, `${theme.start}66`);
+                gradient.addColorStop(1, 'transparent');
                 ctx.fillStyle = gradient;
                 ctx.beginPath();
-                ctx.arc(x, y, this.cellSize * 0.6, 0, Math.PI * 2);
+                ctx.arc(pos.x, pos.y, this.cellSize * 0.5, 0, Math.PI * 2);
                 ctx.fill();
 
-                // 起点圆圈
-                ctx.fillStyle = '#4fc3f7';
+                ctx.fillStyle = theme.start;
                 ctx.beginPath();
-                ctx.arc(x, y, this.cellSize * 0.2, 0, Math.PI * 2);
+                ctx.arc(pos.x, pos.y, this.cellSize * 0.18, 0, Math.PI * 2);
                 ctx.fill();
 
-                // 起始文字
                 ctx.fillStyle = '#fff';
-                ctx.font = `bold ${this.cellSize * 0.25}px sans-serif`;
+                ctx.font = `bold ${this.cellSize * 0.22}px sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('起', x, y);
+                ctx.fillText('起', pos.x, pos.y);
             }
 
-            // 绘制已访问格子高亮
+            // 已访问格子高亮
             this.path.forEach((cell, index) => {
-                const x = this.padding + cell.c * this.cellSize;
-                const y = this.padding + cell.r * this.cellSize;
-
-                const gradient = ctx.createRadialGradient(
-                    x + this.cellSize / 2, y + this.cellSize / 2, 0,
-                    x + this.cellSize / 2, y + this.cellSize / 2, this.cellSize * 0.5
-                );
-                gradient.addColorStop(0, `rgba(255, 215, 0, ${0.4 + index * 0.02})`);
-                gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
-
+                const pos = this.cellToPos(cell.r, cell.c);
+                const alpha = Math.min(0.5, 0.2 + index * 0.015);
+                const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, this.cellSize * 0.4);
+                gradient.addColorStop(0, `${theme.accent}${Math.floor(alpha * 255).toString(16).padStart(2, '0')}`);
+                gradient.addColorStop(1, 'transparent');
                 ctx.fillStyle = gradient;
-                ctx.fillRect(x, y, this.cellSize, this.cellSize);
+                ctx.fillRect(pos.x - this.cellSize / 2, pos.y - this.cellSize / 2, this.cellSize, this.cellSize);
             });
         }
 
         drawPath() {
             const ctx = this.pathCtx;
             const size = this.boardSize;
+            const theme = WORLD_CONFIG.themeColors[this.theme] || WORLD_CONFIG.themeColors[0];
 
             ctx.clearRect(0, 0, size, size);
-
             if (this.path.length < 2) return;
 
-            // 路径线
-            ctx.strokeStyle = '#ffd700';
-            ctx.lineWidth = this.cellSize * 0.2;
+            ctx.strokeStyle = theme.path;
+            ctx.lineWidth = this.cellSize * 0.18;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
 
+            // 发光
+            ctx.shadowColor = theme.path;
+            ctx.shadowBlur = this.cellSize * 0.15;
+
             ctx.beginPath();
             this.path.forEach((cell, i) => {
-                const x = this.padding + cell.c * this.cellSize + this.cellSize / 2;
-                const y = this.padding + cell.r * this.cellSize + this.cellSize / 2;
-
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
+                const pos = this.cellToPos(cell.r, cell.c);
+                if (i === 0) ctx.moveTo(pos.x, pos.y);
+                else ctx.lineTo(pos.x, pos.y);
             });
             ctx.stroke();
+            ctx.shadowBlur = 0;
 
-            // 路径点
+            // 节点
             this.path.forEach((cell, i) => {
-                const x = this.padding + cell.c * this.cellSize + this.cellSize / 2;
-                const y = this.padding + cell.r * this.cellSize + this.cellSize / 2;
+                const pos = this.cellToPos(cell.r, cell.c);
+                const isStart = i === 0;
 
-                // 发光
-                const gradient = ctx.createRadialGradient(x, y, 0, x, y, this.cellSize * 0.3);
-                gradient.addColorStop(0, i === 0 ? '#4fc3f7' : '#ffd700');
+                const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, this.cellSize * 0.25);
+                gradient.addColorStop(0, isStart ? theme.start : theme.path);
                 gradient.addColorStop(1, 'transparent');
                 ctx.fillStyle = gradient;
                 ctx.beginPath();
-                ctx.arc(x, y, this.cellSize * 0.3, 0, Math.PI * 2);
+                ctx.arc(pos.x, pos.y, this.cellSize * 0.25, 0, Math.PI * 2);
                 ctx.fill();
 
-                // 圆点
-                ctx.fillStyle = i === 0 ? '#4fc3f7' : '#ffd700';
+                ctx.fillStyle = isStart ? theme.start : theme.path;
                 ctx.beginPath();
-                ctx.arc(x, y, this.cellSize * 0.1, 0, Math.PI * 2);
+                ctx.arc(pos.x, pos.y, this.cellSize * 0.09, 0, Math.PI * 2);
                 ctx.fill();
             });
         }
 
-        drawTrailParticles() {
+        drawConnectionParticles() {
             const ctx = this.fxCtx;
             const size = this.boardSize;
 
             ctx.clearRect(0, 0, size, size);
 
-            this.trailParticles.forEach((p, i) => {
-                p.alpha -= 0.05;
-                p.size *= 0.95;
+            this.connectionParticles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy;
+                p.alpha -= 0.04;
+                p.size *= 0.96;
 
                 if (p.alpha <= 0) {
-                    this.trailParticles.splice(i, 1);
+                    this.connectionParticles.splice(i, 1);
                     return;
                 }
 
+                const theme = WORLD_CONFIG.themeColors[this.theme] || WORLD_CONFIG.themeColors[0];
                 const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
-                gradient.addColorStop(0, `rgba(255, 215, 0, ${p.alpha})`);
+                gradient.addColorStop(0, `${theme.path}${Math.floor(p.alpha * 255).toString(16).padStart(2, '0')}`);
                 gradient.addColorStop(1, 'transparent');
 
                 ctx.fillStyle = gradient;
@@ -1100,9 +1592,7 @@
         }
 
         applyTheme(themeIndex) {
-            const theme = WORLD_CONFIG.themeColors[themeIndex] || WORLD_CONFIG.themeColors[0];
-            document.documentElement.style.setProperty('--theme-bg', theme.bg);
-            document.documentElement.style.setProperty('--theme-accent', theme.accent);
+            document.getElementById('level-icon').textContent = WORLD_CONFIG.levels[Math.min(themeIndex, WORLD_CONFIG.levels.length - 1)].icon;
         }
 
         // ==================== 游戏逻辑 ====================
@@ -1113,77 +1603,107 @@
                 this.isCompleted = true;
                 clearInterval(this.timerInterval);
 
-                // 计算得分
+                const timeSpent = this.maxTime - this.timeLeft;
                 const timeBonus = this.timeLeft * 2;
-                const levelBonus = this.level * 10;
-                const roundScore = LEVELS[this.level - 1].baseScore + timeBonus + levelBonus;
+                const baseScore = this.isDailyMode ? this.dailyConfig.baseScore : LEVELS[this.level - 1].baseScore;
+                const roundScore = baseScore + timeBonus;
+
                 this.score += roundScore;
 
-                this.showVictory(roundScore);
+                // 统计更新
+                const prevCompleted = this.s.completedLevels;
+
+                if (!this.isDailyMode) {
+                    this.s.completedLevels = Math.max(this.s.completedLevels, this.level);
+                    this.s.bestTime = Math.min(this.s.bestTime, timeSpent);
+                    this.s.streak++;
+                    this.s.perfectStreak++;
+                    this.s.totalScore += roundScore;
+                    this.s.noHintStreak++;
+
+                    if (this.level >= this.s.currentLevel && this.level < 30) {
+                        this.s.currentLevel = this.level + 1;
+                    }
+                }
+
+                // 能量奖励
+                const energyGained = this.gainEnergy(2);
+                this.s.totalEnergySaved += energyGained;
+                if (energyGained > 0) this.s.minEnergyUsed = Math.min(this.s.minEnergyUsed, 1);
+
+                // 完成每日
+                if (this.isDailyMode) {
+                    this.completeDailyChallenge();
+                }
+
+                this.saveProgress();
+                this.checkAchievements('complete');
+                this.showVictory(roundScore, timeSpent);
             }
         }
 
-        reset() {
+        resetLevel() {
             if (this.isCompleted) return;
+            if (this.energy <= 0) { this.showEnergyWarning(); return; }
+
+            this.s.totalRetries++;
+            this.s.perfectStreak = 0;
+            this.s.noHintStreak = 0;
 
             this.path = [];
-            this.trailParticles = [];
+            this.connectionParticles = [];
             this.render();
             this.updateUI();
+            this.saveProgress();
 
-            // 震动反馈
             document.getElementById('game-board').classList.add('shake');
-            setTimeout(() => {
-                document.getElementById('game-board').classList.remove('shake');
-            }, 400);
+            setTimeout(() => document.getElementById('game-board').classList.remove('shake'), 350);
         }
 
         showHint() {
             if (this.isCompleted) return;
+            if (this.s.noHintStreak > 0) this.s.noHintStreak = 0;
+            this.s.totalHints++;
 
-            // 闪烁提示
             const board = document.getElementById('game-board');
             board.classList.add('pulse');
-            setTimeout(() => board.classList.remove('pulse'), 600);
+            setTimeout(() => board.classList.remove('pulse'), 500);
 
-            // 绘制提示线(半透明)
             const ctx = this.pathCtx;
             const size = this.boardSize;
+            const theme = WORLD_CONFIG.themeColors[this.theme] || WORLD_CONFIG.themeColors[0];
 
-            // 清除现有路径
             this.pathCtx.clearRect(0, 0, size, size);
             this.drawPath();
 
-            // 绘制提示路径
             if (this.solution.length > 0) {
-                ctx.strokeStyle = 'rgba(255, 215, 0, 0.25)';
-                ctx.lineWidth = this.cellSize * 0.12;
-                ctx.setLineDash([8, 8]);
+                ctx.strokeStyle = `${theme.path}40`;
+                ctx.lineWidth = this.cellSize * 0.1;
+                ctx.setLineDash([6, 6]);
 
                 ctx.beginPath();
                 this.solution.forEach((cell, i) => {
-                    const x = this.padding + cell.c * this.cellSize + this.cellSize / 2;
-                    const y = this.padding + cell.r * this.cellSize + this.cellSize / 2;
-
-                    if (i === 0) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
+                    const pos = this.cellToPos(cell.r, cell.c);
+                    if (i === 0) ctx.moveTo(pos.x, pos.y);
+                    else ctx.lineTo(pos.x, pos.y);
                 });
                 ctx.stroke();
                 ctx.setLineDash([]);
             }
 
-            // 2秒后恢复
             setTimeout(() => {
                 this.pathCtx.clearRect(0, 0, size, size);
                 this.drawPath();
             }, 2000);
+
+            this.saveProgress();
         }
 
         replay() {
             this.hideVictory();
+            this.s.perfectStreak = 0;
+            this.s.streak = Math.max(0, this.s.streak - 1);
+            this.saveProgress();
             this.startLevel(this.level);
         }
 
@@ -1192,40 +1712,33 @@
             if (this.level < 30) {
                 this.startLevel(this.level + 1);
             } else {
-                // 通关所有关卡
                 this.showEnding();
             }
         }
 
         // ==================== UI更新 ====================
         updateUI() {
-            const config = LEVELS[this.level - 1];
             const totalCells = this.gridSize * this.gridSize - this.obstacles.size;
+            const config = this.isDailyMode ? this.dailyConfig : LEVELS[this.level - 1];
 
-            // 顶部状态
-            document.getElementById('level-text').textContent = `第 ${this.level} 关`;
-            document.getElementById('level-name').textContent = WORLD_CONFIG.levels[(this.level - 1) % 5].name;
+            document.getElementById('level-text').textContent = this.isDailyMode ? '📅 每日挑战' : `第 ${this.level} 关`;
+            document.getElementById('level-name').textContent = this.isDailyMode
+                ? '赫尔墨斯试炼'
+                : WORLD_CONFIG.levels[Math.floor((this.level - 1) / 3) % WORLD_CONFIG.levels.length].name;
             document.getElementById('score-text').textContent = this.score;
             document.getElementById('timer-text').textContent = this.timeLeft;
 
-            // 进度条
             const progress = (this.path.length / totalCells) * 100;
             document.getElementById('progress-fill').style.width = `${progress}%`;
 
-            // 计时器圆环
-            const circumference = 150.8; // 2 * PI * 24
+            const circumference = 138.2; // 2 * PI * 22
             const offset = circumference * (1 - this.timeLeft / this.maxTime);
             document.getElementById('timer-circle').style.strokeDashoffset = offset;
 
-            // 计时器颜色
             const timerCircle = document.getElementById('timer-circle');
-            if (this.timeLeft <= 10) {
-                timerCircle.style.stroke = '#ff4444';
-            } else if (this.timeLeft <= 20) {
-                timerCircle.style.stroke = '#ffaa00';
-            } else {
-                timerCircle.style.stroke = 'var(--accent-gold)';
-            }
+            if (this.timeLeft <= 10) timerCircle.style.stroke = '#ff4444';
+            else if (this.timeLeft <= 20) timerCircle.style.stroke = '#ffaa00';
+            else timerCircle.style.stroke = WORLD_CONFIG.themeColors[this.theme]?.accent || 'var(--accent-gold)';
         }
 
         startTimer() {
@@ -1243,22 +1756,92 @@
 
         gameOver() {
             this.isCompleted = true;
+            this.s.streak = 0;
+            this.s.perfectStreak = 0;
 
-            // 显示游戏结束
-            document.getElementById('victory-subtitle').textContent = '时间耗尽,能量消散...';
+            if (this.energy <= 0) {
+                this.s.revivedFromEmpty = true;
+            }
+
+            this.saveProgress();
+            this.checkAchievements('timeout');
+
+            document.getElementById('victory-subtitle').textContent = '时间耗尽，能量消散...';
             document.getElementById('victory-time').textContent = '--';
             document.getElementById('victory-score').textContent = this.score;
+            document.getElementById('new-achievement').style.display = 'none';
+
+            const btnNext = document.getElementById('btn-next');
+            btnNext.textContent = this.isDailyMode ? '重试' : '重新挑战';
+            btnNext.onclick = () => {
+                this.hideVictory();
+                if (this.isDailyMode) {
+                    this.startDailyChallenge();
+                } else {
+                    this.replay();
+                }
+            };
+
             document.getElementById('victory-overlay').classList.add('active');
-            document.getElementById('btn-next').textContent = '重新挑战';
         }
 
-        showVictory(roundScore) {
+        showVictory(roundScore, timeSpent) {
             const messages = WORLD_CONFIG.victoryMessages;
-            document.getElementById('victory-subtitle').textContent = messages[(this.level - 1) % messages.length];
-            document.getElementById('victory-time').textContent = `${this.maxTime - this.timeLeft}秒`;
+            document.getElementById('victory-title').textContent = this.isDailyMode ? '试炼完成' : '觉醒成功';
+            document.getElementById('victory-subtitle').textContent = this.isDailyMode
+                ? '赫尔墨斯试炼通过！'
+                : messages[(this.level - 1) % messages.length];
+            document.getElementById('victory-time').textContent = `${timeSpent}秒`;
             document.getElementById('victory-score').textContent = `+${roundScore}`;
+
+            // 检查新成就
+            const newAch = ACHIEVEMENTS.find(ach =>
+                !this.s.achievements.includes(ach.id) && ach.condition(this.s)
+            );
+            if (newAch) {
+                document.getElementById('new-achievement').style.display = 'flex';
+                document.getElementById('new-ach-icon').textContent = newAch.icon;
+                document.getElementById('new-ach-name').textContent = newAch.name;
+                document.getElementById('new-ach-desc').textContent = newAch.desc;
+            } else {
+                document.getElementById('new-achievement').style.display = 'none';
+            }
+
+            const btnNext = document.getElementById('btn-next');
+            if (this.isDailyMode) {
+                btnNext.textContent = '完成 ✓';
+                btnNext.onclick = () => {
+                    this.hideVictory();
+                    this.showDailyPanel();
+                };
+            } else {
+                btnNext.textContent = this.level < 30 ? '下一关' : '查看结局';
+                btnNext.onclick = () => this.nextLevel();
+            }
+
             document.getElementById('victory-overlay').classList.add('active');
-            document.getElementById('btn-next').textContent = this.level < 30 ? '下一关' : '查看结局';
+
+            // 胜利粒子
+            this.spawnVictoryParticles();
+        }
+
+        spawnVictoryParticles() {
+            const fx = this.fxCtx;
+            const size = this.boardSize;
+            const cx = size / 2, cy = size / 2;
+            const theme = WORLD_CONFIG.themeColors[this.theme] || WORLD_CONFIG.themeColors[0];
+
+            for (let i = 0; i < 40; i++) {
+                const angle = (Math.PI * 2 * i) / 40;
+                const speed = 2 + Math.random() * 3;
+                this.connectionParticles.push({
+                    x: cx, y: cy,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    alpha: 1,
+                    size: this.cellSize * 0.12
+                });
+            }
         }
 
         hideVictory() {
@@ -1266,11 +1849,13 @@
         }
 
         showLevelHint() {
-            const worldLevel = WORLD_CONFIG.levels[(this.level - 1) % 5];
+            const levelIndex = Math.floor((this.level - 1) / 3) % WORLD_CONFIG.levels.length;
+            const worldLevel = WORLD_CONFIG.levels[levelIndex];
             const hintEl = document.getElementById('level-hint');
 
-            if (worldLevel.story && this.level % 5 === 2) {
-                // 每5关显示一句剧情
+            if (this.isDailyMode) {
+                hintEl.innerHTML = `<strong>📅 每日挑战:</strong>与全球玩家同台竞技，争夺最快速度！`;
+            } else if (worldLevel.story && this.level > 1) {
                 hintEl.innerHTML = `<strong>${worldLevel.icon} ${worldLevel.name}:</strong>${worldLevel.story}`;
             } else {
                 hintEl.innerHTML = `<strong>引导者低语:</strong>${worldLevel.hint}`;
@@ -1279,16 +1864,16 @@
 
         showIntro() {
             const dialog = document.getElementById('story-dialog');
-            const icon = document.getElementById('dialog-icon');
-            const title = document.getElementById('dialog-title');
-            const text = document.getElementById('dialog-text');
             const btn = document.getElementById('dialog-btn');
+            const btnContainer = document.getElementById('dialog-btns');
 
-            icon.textContent = '🌌';
-            title.textContent = '末日锈纪';
-            text.textContent = '2500年,赫尔墨斯粒子的光芒已经黯淡。三方势力的战争让地球沉默太久。是时候让碎片重新连接,让能量再次流动...';
+            document.getElementById('dialog-icon').textContent = '🌌';
+            document.getElementById('dialog-title').textContent = '末日锈纪';
+            document.getElementById('dialog-text').textContent =
+                '2500年，赫尔墨斯粒子的光芒已经黯淡。三方势力的战争让地球沉默了太久。是时候让碎片重新连接，让能量再次流动...';
+
             btn.textContent = '开始觉醒';
-
+            btnContainer.innerHTML = '<button class="dialog-btn" id="dialog-btn" onclick="game.closeDialog()">开始觉醒</button>';
             dialog.classList.add('active');
         }
 
@@ -1298,21 +1883,40 @@
 
         showEnding() {
             const dialog = document.getElementById('story-dialog');
-            const icon = document.getElementById('dialog-icon');
-            const title = document.getElementById('dialog-title');
-            const text = document.getElementById('dialog-text');
-            const btn = document.getElementById('dialog-btn');
+            const btnContainer = document.getElementById('dialog-btns');
 
-            icon.textContent = '✨';
-            title.textContent = '觉醒完成';
-            text.textContent = '所有赫尔墨斯碎片已经重新连接,能量网络全面激活。回光者和散铁的遗骸发出最后的光芒... 新的时代即将开始。';
-            btn.textContent = '重新开始';
-            btn.onclick = () => {
-                this.score = 0;
-                this.closeDialog();
-                this.startLevel(1);
-                btn.onclick = () => this.closeDialog(); // 恢复原状
-            };
+            document.getElementById('dialog-icon').textContent = '✨';
+            document.getElementById('dialog-title').textContent = '觉醒完成';
+            document.getElementById('dialog-text').textContent =
+                '所有赫尔墨斯碎片已经重新连接，能量网络全面激活。回光者和散铁的遗骸发出最后的光芒... 新的时代即将开始。';
+
+            btnContainer.innerHTML =
+                '<button class="dialog-btn dialog-btn-secondary" onclick="game.closeDialog(); game.score=0; game.s.currentLevel=1;">重新开始</button>' +
+                '<button class="dialog-btn" onclick="game.closeDialog()">自由探索</button>';
+
+            dialog.classList.add('active');
+        }
+
+        showMenu() {
+            const dialog = document.getElementById('story-dialog');
+            const btnContainer = document.getElementById('dialog-btns');
+
+            document.getElementById('dialog-icon').textContent = '☰';
+            document.getElementById('dialog-title').textContent = '游戏菜单';
+            document.getElementById('dialog-text').innerHTML =
+                `<div style="text-align:left; font-size:13px; line-height:2;">` +
+                `⚡ 当前能量: ${this.energy}/${this.maxEnergy}<br>` +
+                `🎖️ 已解锁成就: ${this.s.achievements.length}/30<br>` +
+                `📅 每日挑战: ${this.s.dailyCount}次完成<br>` +
+                `🔥 当前连胜: ${this.s.streak}关<br>` +
+                `⭐ 最高关卡: ${this.s.completedLevels}/30<br>` +
+                `💰 总得分: ${this.s.totalScore}<br>` +
+                `⏱️ 最佳时间: ${this.s.bestTime < 999 ? this.s.bestTime + '秒' : '--'}` +
+                `</div>`;
+
+            btnContainer.innerHTML =
+                '<button class="dialog-btn" onclick="game.closeDialog(); game.startLevel(1);">回到第1关</button>' +
+                '<button class="dialog-btn dialog-btn-secondary" onclick="game.closeDialog()">关闭</button>';
 
             dialog.classList.add('active');
         }
@@ -1324,11 +1928,8 @@
         game = new OneStrokeGame();
     });
 
-    // 阻止默认触摸行为
-    document.addEventListener('touchmove', (e) => {
-        if (e.target.closest('#game-board')) {
-            e.preventDefault();
-        }
+    document.addEventListener('touchmove', e => {
+        if (e.target.closest('#game-board')) e.preventDefault();
     }, { passive: false });
     </script>
 </body>
