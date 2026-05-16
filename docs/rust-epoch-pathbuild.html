@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>末日锈纪:筑路求生 V1.0</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        :root {
+            --bg-primary: #0a0a12;
+            --bg-secondary: #12121f;
+            --accent-gold: #ffd700;
+            --accent-glow: #ffed4e;
+            --color-human: #4fc3f7;
+            --color-zombie: #81c784;
+            --color-robot: #ffb74d;
+            --color-particle: #e040fb;
+            --text-primary: #ffffff;
+            --text-secondary: #8a8a9a;
+            --color-start: #4fc3f7;
+            --color-end: #ff6b6b;
+            --color-placed: #81c784;
+            --color-candidate: #ffd700;
+            --color-hole: #1a1a2e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .game-container {
+            position: relative; z-index: 1;
+            display: flex; flex-direction: column;
+            align-items: center; min-height: 100vh;
+            padding: 12px; max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* 顶部状态栏 */
+        .top-bar {
+            width: 100%;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 16px;
+            background: linear-gradient(180deg, rgba(255,215,0,0.08) 0%, transparent 100%);
+            border-radius: 16px; margin-bottom: 8px;
+        }
+
+        .level-badge { display: flex; align-items: center; gap: 8px; }
+        .level-icon {
+            width: 34px; height: 34px;
+            background: linear-gradient(135deg, var(--accent-gold), #ff8c00);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            box-shadow: 0 2px 8px rgba(255,215,0,0.3);
+        }
+        .level-info { font-size: 13px; font-weight: 600; }
+        .level-name { font-size: 11px; color: var(--text-secondary); }
+
+        .moves-badge {
+            font-size: 13px; color: var(--accent-gold);
+            background: rgba(255,215,0,0.1);
+            padding: 4px 12px; border-radius: 20px;
+        }
+
+        /* 游戏画布 */
+        .canvas-wrap {
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 0 40px rgba(255,215,0,0.03);
+            border: 1px solid rgba(255,215,0,0.1);
+        }
+
+        canvas { display: block; touch-action: none; }
+
+        /* 候选区域 */
+        .candidates-area {
+            width: 100%;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            border: 1px solid rgba(255,215,0,0.08);
+        }
+
+        .candidates-title {
+            font-size: 12px; color: var(--text-secondary);
+            margin-bottom: 8px; text-align: center;
+        }
+
+        .candidates-row {
+            display: flex; justify-content: center;
+            gap: 8px; flex-wrap: wrap;
+        }
+
+        .candidate-card {
+            background: rgba(255,215,0,0.06);
+            border: 2px solid rgba(255,215,0,0.2);
+            border-radius: 12px;
+            padding: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .candidate-card:hover {
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 12px rgba(255,215,0,0.3);
+        }
+
+        .candidate-card.selected {
+            border-color: var(--accent-gold);
+            background: rgba(255,215,0,0.15);
+            box-shadow: 0 0 16px rgba(255,215,0,0.4);
+        }
+
+        .candidate-card.used {
+            opacity: 0.25;
+            pointer-events: none;
+        }
+
+        .candidate-card canvas {
+            display: block;
+        }
+
+        /* 操作按钮 */
+        .action-bar {
+            display: flex; gap: 8px; margin-top: 10px; width: 100%;
+        }
+
+        .action-btn {
+            flex: 1; padding: 10px;
+            border: 1px solid rgba(255,215,0,0.2);
+            border-radius: 12px;
+            background: rgba(255,215,0,0.06);
+            color: var(--text-primary);
+            font-size: 13px; font-weight: 600;
+            cursor: pointer; text-align: center;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: rgba(255,215,0,0.15);
+            border-color: var(--accent-gold);
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, var(--accent-gold), #ff8c00);
+            color: #000; border: none;
+        }
+
+        .action-btn:disabled {
+            opacity: 0.3; pointer-events: none;
+        }
+
+        /* 提示文字 */
+        .hint-text {
+            font-size: 12px; color: var(--text-secondary);
+            text-align: center; margin-top: 8px;
+            min-height: 18px;
+        }
+
+        /* 胜利弹窗 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none; align-items: center; justify-content: center;
+            z-index: 100;
+        }
+
+        .modal-overlay.show { display: flex; }
+
+        .modal-box {
+            background: linear-gradient(135deg, #1a1a2e, #12121f);
+            border: 1px solid rgba(255,215,0,0.3);
+            border-radius: 20px;
+            padding: 30px; text-align: center;
+            max-width: 320px; width: 90%;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(255,215,0,0.1);
+        }
+
+        .modal-title {
+            font-size: 22px; font-weight: 700;
+            color: var(--accent-gold);
+            margin-bottom: 10px;
+        }
+
+        .modal-subtitle {
+            font-size: 14px; color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .modal-btn {
+            padding: 12px 32px;
+            background: linear-gradient(135deg, var(--accent-gold), #ff8c00);
+            color: #000; font-weight: 700; font-size: 15px;
+            border: none; border-radius: 12px;
+            cursor: pointer;
+        }
+
+        /* 粒子背景 */
+        .particle-bg {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none; z-index: 0;
+        }
+    </style>
+</head>
+<body>
+    <canvas class="particle-bg" id="bgCanvas"></canvas>
+
+    <div class="game-container">
+        <div class="top-bar">
+            <div class="level-badge">
+                <div class="level-icon">🛤️</div>
+                <div>
+                    <div class="level-info" id="levelText">第 1 关</div>
+                    <div class="level-name" id="levelName">废墟起步</div>
+                </div>
+            </div>
+            <div class="moves-badge" id="movesText">剩余: 0 块</div>
+        </div>
+
+        <div class="canvas-wrap">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+
+        <div class="candidates-area">
+            <div class="candidates-title">📋 可用方块 — 点击选择，点击棋盘放置</div>
+            <div class="candidates-row" id="candidatesRow"></div>
+        </div>
+
+        <div class="action-bar">
+            <button class="action-btn" id="btnRotate">🔄 旋转</button>
+            <button class="action-btn" id="btnUndo">↩️ 撤销</button>
+            <button class="action-btn" id="btnReset">🔃 重置</button>
+        </div>
+
+        <div class="hint-text" id="hintText">选择一个方块开始筑路</div>
+    </div>
+
+    <div class="modal-overlay" id="winModal">
+        <div class="modal-box">
+            <div class="modal-title">🎉 通路达成!</div>
+            <div class="modal-subtitle" id="winSubtitle">用了 0 块完成</div>
+            <button class="modal-btn" id="btnNext">下一关 →</button>
+        </div>
+    </div>
+
+    <script>
+    // ============================================
+    // 末日锈纪:筑路求生 V1.0
+    // 玩法：放置俄罗斯方块搭建起点到终点的通路
+    // ============================================
+
+    // ---- 方块定义（相对坐标，0,0为中心） ----
+    const PIECE_DEFS = {
+        I: { cells: [[0,-1],[0,0],[0,1],[0,2]], color: '#4fc3f7' },
+        L: { cells: [[0,-1],[0,0],[0,1],[1,1]], color: '#81c784' },
+        J: { cells: [[0,-1],[0,0],[0,1],[-1,1]], color: '#ffb74d' },
+        T: { cells: [[0,-1],[0,0],[0,1],[1,0]], color: '#e040fb' },
+        S: { cells: [[0,0],[1,0],[0,1],[-1,1]], color: '#ff6b6b' },
+        Z: { cells: [[0,0],[-1,0],[0,1],[1,1]], color: '#ffd700' },
+        O: { cells: [[0,0],[1,0],[0,1],[1,1]], color: '#ff8c00' },
+        // 小块
+        I3: { cells: [[0,-1],[0,0],[0,1]], color: '#64b5f6' },
+        L3: { cells: [[0,0],[0,1],[1,1]], color: '#a5d6a7' },
+        DOT: { cells: [[0,0]], color: '#90a4ae' },
+        I2: { cells: [[0,0],[0,1]], color: '#80cbc4' },
+    };
+
+    // 旋转cells 90°顺时针
+    function rotateCells(cells) {
+        return cells.map(([r,c]) => [c, -r]);
+    }
+
+    // ---- 关卡定义 ----
+    const LEVELS = [
+        { grid: 5, start: [2,0], end: [2,4], pieces: ['I','I','I3','L3','DOT'], obstacles: [] },
+        { grid: 5, start: [0,0], end: [4,4], pieces: ['I','L','I3','L3','DOT','DOT'], obstacles: [] },
+        { grid: 6, start: [0,0], end: [5,5], pieces: ['I','I','L','T','I3','L3','DOT'], obstacles: [[2,2],[3,3]] },
+        { grid: 6, start: [1,0], end: [4,5], pieces: ['I','I','L','J','T','I3','L3','DOT'], obstacles: [[2,2],[3,3],[0,3]] },
+        { grid: 7, start: [0,0], end: [6,6], pieces: ['I','I','L','J','T','S','Z','I3','DOT','DOT'], obstacles: [[2,2],[3,3],[4,4],[1,4]] },
+        { grid: 7, start: [3,0], end: [3,6], pieces: ['I','I','I','L','J','I3','I3','L3','DOT'], obstacles: [[1,2],[5,2],[1,4],[5,4],[3,3]] },
+        { grid: 8, start: [0,0], end: [7,7], pieces: ['I','I','I','L','J','T','S','Z','O','I3','I3','L3','DOT'], obstacles: [[2,2],[2,5],[5,2],[5,5],[3,4],[4,3]] },
+        { grid: 8, start: [0,7], end: [7,0], pieces: ['I','I','L','L','J','T','T','S','Z','I3','L3','L3','DOT','DOT'], obstacles: [[3,3],[4,4],[2,5],[5,2],[1,3],[6,4]] },
+        { grid: 9, start: [0,0], end: [8,8], pieces: ['I','I','I','I','L','J','T','S','Z','O','I3','I3','L3','DOT','DOT'], obstacles: [[3,3],[4,4],[5,5],[2,6],[6,2],[1,4],[7,4]] },
+        { grid: 10, start: [0,0], end: [9,9], pieces: ['I','I','I','I','L','L','J','J','T','T','S','Z','O','I3','I3','L3','L3','DOT'], obstacles: [[3,3],[4,4],[5,5],[6,6],[2,7],[7,2],[1,5],[8,4]] },
+    ];
+
+    const LEVEL_NAMES = [
+        '废墟起步', '对角求生', '暗坑初现', '迂回前进', '绝地逢生',
+        '中路突围', '四方围困', '逆流而上', '深渊通道', '终极筑路'
+    ];
+
+    // ---- 游戏状态 ----
+    class PathBuildGame {
+        constructor() {
+            this.canvas = document.getElementById('gameCanvas');
+            this.ctx = this.canvas.getContext('2d');
+            this.bgCanvas = document.getElementById('bgCanvas');
+            this.bgCtx = this.bgCanvas.getContext('2d');
+
+            this.level = 0;
+            this.grid = [];       // 2D: 0=empty, 1=placed, 2=obstacle, 3=start, 4=end
+            this.gridSize = 5;
+            this.cellSize = 0;
+            this.startPos = null;
+            this.endPos = null;
+
+            this.candidates = [];  // [{def, rotation, used}]
+            this.selectedIdx = -1;
+            this.placedPieces = []; // [{idx, cells, rotation}]
+
+            this.hoverPos = null;  // [r,c] grid position for preview
+
+            this.won = false;
+
+            this.setupUI();
+            this.resize();
+            this.loadLevel(0);
+            this.initBgParticles();
+            this.loop();
+        }
+
+        setupUI() {
+            document.getElementById('btnRotate').onclick = () => this.rotateSelected();
+            document.getElementById('btnUndo').onclick = () => this.undo();
+            document.getElementById('btnReset').onclick = () => this.resetLevel();
+            document.getElementById('btnNext').onclick = () => this.nextLevel();
+
+            // Canvas events
+            this.canvas.addEventListener('pointermove', e => this.onPointerMove(e));
+            this.canvas.addEventListener('pointerdown', e => this.onPointerDown(e));
+            this.canvas.addEventListener('pointerleave', () => { this.hoverPos = null; });
+        }
+
+        resize() {
+            const maxW = Math.min(window.innerWidth - 32, 460);
+            const maxH = window.innerHeight * 0.42;
+            this.cellSize = Math.floor(Math.min(maxW / this.gridSize, maxH / this.gridSize));
+            const size = this.cellSize * this.gridSize;
+            const dpr = window.devicePixelRatio || 1;
+            this.canvas.width = size * dpr;
+            this.canvas.height = size * dpr;
+            this.canvas.style.width = size + 'px';
+            this.canvas.style.height = size + 'px';
+            this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            // bg canvas
+            this.bgCanvas.width = window.innerWidth * dpr;
+            this.bgCanvas.height = window.innerHeight * dpr;
+            this.bgCanvas.style.width = window.innerWidth + 'px';
+            this.bgCanvas.style.height = window.innerHeight + 'px';
+            this.bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        loadLevel(idx) {
+            this.level = idx;
+            const lv = LEVELS[idx] || LEVELS[LEVELS.length - 1];
+            this.gridSize = lv.grid;
+            this.startPos = lv.start;
+            this.endPos = lv.end;
+
+            this.grid = [];
+            for (let r = 0; r < this.gridSize; r++) {
+                this.grid[r] = [];
+                for (let c = 0; c < this.gridSize; c++) {
+                    this.grid[r][c] = 0;
+                }
+            }
+            this.grid[this.startPos[0]][this.startPos[1]] = 3;
+            this.grid[this.endPos[0]][this.endPos[1]] = 4;
+            for (const [r,c] of lv.obstacles) {
+                this.grid[r][c] = 2;
+            }
+
+            this.candidates = lv.pieces.map(name => ({
+                def: PIECE_DEFS[name],
+                name,
+                rotation: 0,
+                used: false
+            }));
+            this.selectedIdx = -1;
+            this.placedPieces = [];
+            this.hoverPos = null;
+            this.won = false;
+
+            this.resize();
+            this.renderCandidates();
+            this.updateUI();
+        }
+
+        resetLevel() {
+            this.loadLevel(this.level);
+        }
+
+        nextLevel() {
+            document.getElementById('winModal').classList.remove('show');
+            const next = this.level + 1;
+            if (next < LEVELS.length) {
+                this.loadLevel(next);
+            } else {
+                this.loadLevel(this.level);
+            }
+        }
+
+        // ---- 候选方块渲染 ----
+        renderCandidates() {
+            const row = document.getElementById('candidatesRow');
+            row.innerHTML = '';
+            this.candidates.forEach((cand, idx) => {
+                const card = document.createElement('div');
+                card.className = 'candidate-card' + (cand.used ? ' used' : '') + (idx === this.selectedIdx ? ' selected' : '');
+                card.onclick = () => this.selectCandidate(idx);
+
+                // 小canvas预览
+                const cvs = document.createElement('canvas');
+                const s = 18;
+                const cells = this.getRotatedCells(cand);
+                let minR=Infinity,maxR=-Infinity,minC=Infinity,maxC=-Infinity;
+                for (const [r,c] of cells) { minR=Math.min(minR,r);maxR=Math.max(maxR,r);minC=Math.min(minC,c);maxC=Math.max(maxC,c); }
+                const w = (maxC-minC+1)*s;
+                const h = (maxR-minR+1)*s;
+                cvs.width = w * 2; cvs.height = h * 2;
+                cvs.style.width = w + 'px'; cvs.style.height = h + 'px';
+                const cx = cvs.getContext('2d');
+                cx.scale(2,2);
+                for (const [r,c] of cells) {
+                    cx.fillStyle = cand.def.color;
+                    cx.fillRect((c-minC)*s+1, (r-minR)*s+1, s-2, s-2);
+                    cx.strokeStyle = 'rgba(255,255,255,0.3)';
+                    cx.lineWidth = 1;
+                    cx.strokeRect((c-minC)*s+1, (r-minR)*s+1, s-2, s-2);
+                }
+                card.appendChild(cvs);
+                row.appendChild(card);
+            });
+        }
+
+        selectCandidate(idx) {
+            if (this.candidates[idx].used) return;
+            this.selectedIdx = (this.selectedIdx === idx) ? -1 : idx;
+            this.renderCandidates();
+        }
+
+        rotateSelected() {
+            if (this.selectedIdx < 0) return;
+            const cand = this.candidates[this.selectedIdx];
+            cand.rotation = (cand.rotation + 1) % 4;
+            this.renderCandidates();
+        }
+
+        getRotatedCells(cand) {
+            let cells = cand.def.cells.map(c => [...c]);
+            for (let i = 0; i < cand.rotation; i++) {
+                cells = rotateCells(cells);
+            }
+            return cells;
+        }
+
+        // ---- 鼠标/触摸 ----
+        getGridPos(e) {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const c = Math.floor(x / this.cellSize);
+            const r = Math.floor(y / this.cellSize);
+            if (r >= 0 && r < this.gridSize && c >= 0 && c < this.gridSize) return [r, c];
+            return null;
+        }
+
+        onPointerMove(e) {
+            this.hoverPos = this.getGridPos(e);
+        }
+
+        onPointerDown(e) {
+            const pos = this.getGridPos(e);
+            if (!pos) return;
+            if (this.won) return;
+            if (this.selectedIdx < 0) {
+                this.setHint('先选择一个方块');
+                return;
+            }
+            this.placePiece(pos[0], pos[1]);
+        }
+
+        // ---- 放置逻辑 ----
+        placePiece(anchorR, anchorC) {
+            const cand = this.candidates[this.selectedIdx];
+            const cells = this.getRotatedCells(cand);
+
+            // 计算绝对坐标
+            const absCells = cells.map(([r,c]) => [anchorR + r, anchorC + c]);
+
+            // 边界检查
+            for (const [r,c] of absCells) {
+                if (r < 0 || r >= this.gridSize || c < 0 || c >= this.gridSize) {
+                    this.setHint('❌ 超出边界');
+                    return;
+                }
+                if (this.grid[r][c] === 2) {
+                    this.setHint('❌ 不能放在障碍上');
+                    return;
+                }
+                if (this.grid[r][c] === 1) {
+                    this.setHint('❌ 已有方块');
+                    return;
+                }
+                // 允许覆盖起点终点（它们也算通路）
+            }
+
+            // 放置
+            for (const [r,c] of absCells) {
+                if (this.grid[r][c] === 0) this.grid[r][c] = 1;
+            }
+
+            this.placedPieces.push({
+                idx: this.selectedIdx,
+                anchorR, anchorC,
+                cells: absCells,
+                rotation: cand.rotation
+            });
+
+            cand.used = true;
+            this.selectedIdx = -1;
+            this.renderCandidates();
+            this.updateUI();
+            this.setHint('方块已放置');
+
+            // 检查胜利
+            if (this.checkWin()) {
+                this.won = true;
+                setTimeout(() => this.showWin(), 400);
+            }
+        }
+
+        undo() {
+            if (this.placedPieces.length === 0) return;
+            const last = this.placedPieces.pop();
+            // 还原grid
+            for (const [r,c] of last.cells) {
+                if (this.grid[r][c] === 1) this.grid[r][c] = 0;
+            }
+            // 恢复start/end标记
+            this.grid[this.startPos[0]][this.startPos[1]] = 3;
+            this.grid[this.endPos[0]][this.endPos[1]] = 4;
+            // 恢复candidate
+            this.candidates[last.idx].used = false;
+            this.selectedIdx = -1;
+            this.renderCandidates();
+            this.updateUI();
+            this.setHint('已撤销');
+        }
+
+        // ---- 胜利检查：BFS从start到end，经过placed(1)和start/end(3,4) ----
+        checkWin() {
+            const visited = Array.from({length: this.gridSize}, () => Array(this.gridSize).fill(false));
+            const queue = [this.startPos];
+            visited[this.startPos[0]][this.startPos[1]] = true;
+            const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+
+            while (queue.length > 0) {
+                const [r,c] = queue.shift();
+                if (r === this.endPos[0] && c === this.endPos[1]) return true;
+                for (const [dr,dc] of dirs) {
+                    const nr = r+dr, nc = c+dc;
+                    if (nr>=0 && nr<this.gridSize && nc>=0 && nc<this.gridSize && !visited[nr][nc]) {
+                        const v = this.grid[nr][nc];
+                        if (v === 1 || v === 3 || v === 4) {
+                            visited[nr][nc] = true;
+                            queue.push([nr,nc]);
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        // ---- 找连通路径（用于高亮） ----
+        findPath() {
+            const visited = Array.from({length: this.gridSize}, () => Array(this.gridSize).fill(false));
+            const parent = Array.from({length: this.gridSize}, () => Array(this.gridSize).fill(null));
+            const queue = [this.startPos];
+            visited[this.startPos[0]][this.startPos[1]] = true;
+            const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+
+            while (queue.length > 0) {
+                const [r,c] = queue.shift();
+                if (r === this.endPos[0] && c === this.endPos[1]) {
+                    // 回溯路径
+                    const path = new Set();
+                    let cur = [r,c];
+                    while (cur) {
+                        path.add(cur[0]*this.gridSize+cur[1]);
+                        cur = parent[cur[0]][cur[1]];
+                    }
+                    return path;
+                }
+                for (const [dr,dc] of dirs) {
+                    const nr = r+dr, nc = c+dc;
+                    if (nr>=0 && nr<this.gridSize && nc>=0 && nc<this.gridSize && !visited[nr][nc]) {
+                        const v = this.grid[nr][nc];
+                        if (v === 1 || v === 3 || v === 4) {
+                            visited[nr][nc] = true;
+                            parent[nr][nc] = [r,c];
+                            queue.push([nr,nc]);
+                        }
+                    }
+                }
+            }
+            return new Set();
+        }
+
+        showWin() {
+            const used = this.placedPieces.length;
+            document.getElementById('winSubtitle').textContent = `用了 ${used} 块完成筑路`;
+            document.getElementById('winModal').classList.add('show');
+        }
+
+        // ---- UI更新 ----
+        updateUI() {
+            document.getElementById('levelText').textContent = `第 ${this.level+1} 关`;
+            document.getElementById('levelName').textContent = LEVEL_NAMES[this.level] || '末日筑路';
+            const remaining = this.candidates.filter(c => !c.used).length;
+            document.getElementById('movesText').textContent = `剩余: ${remaining} 块`;
+        }
+
+        setHint(text) {
+            document.getElementById('hintText').textContent = text;
+        }
+
+        // ---- 渲染 ----
+        render() {
+            const ctx = this.ctx;
+            const cs = this.cellSize;
+            const gs = this.gridSize;
+            const size = cs * gs;
+
+            ctx.clearRect(0, 0, size, size);
+
+            // 背景
+            ctx.fillStyle = '#0d0d1a';
+            ctx.fillRect(0, 0, size, size);
+
+            // 找到连通路径用于高亮
+            const pathSet = this.won ? this.findPath() : new Set();
+
+            // 绘制格子
+            for (let r = 0; r < gs; r++) {
+                for (let c = 0; c < gs; c++) {
+                    const x = c * cs, y = r * cs;
+                    const v = this.grid[r][c];
+
+                    // 网格线
+                    ctx.strokeStyle = 'rgba(255,215,0,0.06)';
+                    ctx.lineWidth = 0.5;
+                    ctx.strokeRect(x, y, cs, cs);
+
+                    if (v === 2) {
+                        // 障碍
+                        ctx.fillStyle = '#1a1a2e';
+                        ctx.fillRect(x+1, y+1, cs-2, cs-2);
+                        ctx.fillStyle = 'rgba(255,0,0,0.15)';
+                        ctx.fillRect(x+1, y+1, cs-2, cs-2);
+                        // X标记
+                        ctx.strokeStyle = 'rgba(255,50,50,0.4)';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(x+cs*0.25, y+cs*0.25);
+                        ctx.lineTo(x+cs*0.75, y+cs*0.75);
+                        ctx.moveTo(x+cs*0.75, y+cs*0.25);
+                        ctx.lineTo(x+cs*0.25, y+cs*0.75);
+                        ctx.stroke();
+                    } else if (v === 1) {
+                        // 已放置
+                        const onPath = pathSet.has(r*gs+c);
+                        ctx.fillStyle = onPath ? 'rgba(129,199,132,0.7)' : 'rgba(129,199,132,0.35)';
+                        ctx.fillRect(x+1, y+1, cs-2, cs-2);
+                        // 发光效果
+                        if (onPath) {
+                            ctx.shadowColor = '#81c784';
+                            ctx.shadowBlur = 8;
+                            ctx.fillStyle = 'rgba(129,199,132,0.3)';
+                            ctx.fillRect(x+1, y+1, cs-2, cs-2);
+                            ctx.shadowBlur = 0;
+                        }
+                    } else if (v === 3) {
+                        // 起点
+                        ctx.fillStyle = 'rgba(79,195,247,0.3)';
+                        ctx.fillRect(x+1, y+1, cs-2, cs-2);
+                        ctx.fillStyle = '#4fc3f7';
+                        ctx.font = `bold ${cs*0.5}px sans-serif`;
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillText('S', x+cs/2, y+cs/2);
+                    } else if (v === 4) {
+                        // 终点
+                        ctx.fillStyle = 'rgba(255,107,107,0.3)';
+                        ctx.fillRect(x+1, y+1, cs-2, cs-2);
+                        ctx.fillStyle = '#ff6b6b';
+                        ctx.font = `bold ${cs*0.5}px sans-serif`;
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillText('E', x+cs/2, y+cs/2);
+                    }
+                }
+            }
+
+            // 放置预览（半透明）
+            if (this.hoverPos && this.selectedIdx >= 0 && !this.won) {
+                const cand = this.candidates[this.selectedIdx];
+                const cells = this.getRotatedCells(cand);
+                const [ar, ac] = this.hoverPos;
+                const absCells = cells.map(([r,c]) => [ar+r, ac+c]);
+
+                let valid = true;
+                for (const [r,c] of absCells) {
+                    if (r < 0 || r >= gs || c < 0 || c >= gs) { valid = false; break; }
+                    if (this.grid[r][c] === 2 || this.grid[r][c] === 1) { valid = false; break; }
+                }
+
+                for (const [r,c] of absCells) {
+                    if (r < 0 || r >= gs || c < 0 || c >= gs) continue;
+                    const x = c * cs, y = r * cs;
+                    ctx.fillStyle = valid ? 'rgba(255,215,0,0.35)' : 'rgba(255,50,50,0.35)';
+                    ctx.fillRect(x+1, y+1, cs-2, cs-2);
+                }
+            }
+
+            // 画通路连接线（胜利时）
+            if (this.won && pathSet.size > 1) {
+                // 简单连线：找到路径序列
+                const pathList = [];
+                // BFS to get ordered path
+                const visited2 = Array.from({length: gs}, () => Array(gs).fill(false));
+                const parent2 = Array.from({length: gs}, () => Array(gs).fill(null));
+                const queue2 = [this.startPos];
+                visited2[this.startPos[0]][this.startPos[1]] = true;
+                const dirs2 = [[0,1],[0,-1],[1,0],[-1,0]];
+                let found = false;
+                while (queue2.length > 0 && !found) {
+                    const [r,c] = queue2.shift();
+                    if (r === this.endPos[0] && c === this.endPos[1]) {
+                        let cur = [r,c];
+                        while (cur) { pathList.unshift(cur); cur = parent2[cur[0]][cur[1]]; }
+                        found = true;
+                        break;
+                    }
+                    for (const [dr,dc] of dirs2) {
+                        const nr = r+dr, nc = c+dc;
+                        if (nr>=0 && nr<gs && nc>=0 && nc<gs && !visited2[nr][nc]) {
+                            const v = this.grid[nr][nc];
+                            if (v===1||v===3||v===4) {
+                                visited2[nr][nc] = true;
+                                parent2[nr][nc] = [r,c];
+                                queue2.push([nr,nc]);
+                            }
+                        }
+                    }
+                }
+
+                if (pathList.length > 1) {
+                    ctx.strokeStyle = 'rgba(255,215,0,0.6)';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([4,4]);
+                    ctx.beginPath();
+                    ctx.moveTo(pathList[0][1]*cs+cs/2, pathList[0][0]*cs+cs/2);
+                    for (let i = 1; i < pathList.length; i++) {
+                        ctx.lineTo(pathList[i][1]*cs+cs/2, pathList[i][0]*cs+cs/2);
+                    }
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+        }
+
+        // ---- 背景粒子 ----
+        bgParticles = [];
+        initBgParticles() {
+            this.bgParticles = [];
+            for (let i = 0; i < 30; i++) {
+                this.bgParticles.push({
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    vx: (Math.random()-0.5)*0.3,
+                    vy: (Math.random()-0.5)*0.3,
+                    r: Math.random()*2+0.5,
+                    a: Math.random()*0.3+0.05
+                });
+            }
+        }
+
+        renderBg() {
+            const ctx = this.bgCtx;
+            ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
+            for (const p of this.bgParticles) {
+                p.x += p.vx; p.y += p.vy;
+                if (p.x < 0) p.x = window.innerWidth;
+                if (p.x > window.innerWidth) p.x = 0;
+                if (p.y < 0) p.y = window.innerHeight;
+                if (p.y > window.innerHeight) p.y = 0;
+                ctx.fillStyle = `rgba(255,215,0,${p.a})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        // ---- 主循环 ----
+        loop() {
+            this.renderBg();
+            this.render();
+            requestAnimationFrame(() => this.loop());
+        }
+    }
+
+    // 启动
+    window.addEventListener('load', () => { new PathBuildGame(); });
+    </script>
+</body>
+</html>
