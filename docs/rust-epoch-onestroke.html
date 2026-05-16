@@ -1426,14 +1426,43 @@
         generateSolvablePuzzle(config) {
             const totalCells = this.gridSize * this.gridSize;
             const pathLength = totalCells - config.obstacles;
+
+            // 步骤1：生成蛇形骨架（访问所有格子）
             const fullSnakePath = this.generateSnakePath();
 
-            this.solution = fullSnakePath.slice(0, pathLength);
+            // 步骤2：随机旋转+镜像打乱（让路径不再固定规律）
+            const shuffledPath = this.randomizeSnakePath([...fullSnakePath]);
+
+            // 步骤3：前 pathLength 格作为可行路径
+            this.solution = shuffledPath.slice(0, pathLength);
+
+
+            // 步骤4：剩余格子作为障碍物（障碍物永不在路径上，保证有解）
             this.obstacles = new Set();
-            for (let i = pathLength; i < fullSnakePath.length; i++) {
-                this.obstacles.add(`${fullSnakePath[i].r},${fullSnakePath[i].c}`);
+            for (let i = pathLength; i < shuffledPath.length; i++) {
+                this.obstacles.add(`${shuffledPath[i].r},${shuffledPath[i].c}`);
             }
+
+            // 步骤5：起点和终点
             this.startCell = this.solution[0];
+        }
+
+
+        // 随机旋转+镜像打乱蛇形路径（90度旋转 + 水平翻转）
+        randomizeSnakePath(path) {
+            let rotation = Math.floor(Math.random() * 4); // 0/1/2/3 次 90度
+            const mirrored = Math.random() < 0.5;
+            const size = this.gridSize;
+            return path.map(cell => {
+                let { r, c } = cell;
+                // 旋转
+                for (let i = 0; i < rotation; i++) {
+                    const tmp = r; r = c; c = size - 1 - tmp;
+                }
+                // 水平翻转
+                if (mirrored) c = size - 1 - c;
+                return { r, c };
+            });
         }
 
         generateSnakePath() {
@@ -1453,6 +1482,119 @@
             this.drawGrid();
             this.drawPath();
             this.drawConnectionParticles();
+        }
+
+        drawGrid() {
+            const ctx = this.gridCtx;
+            const size = this.boardSize;
+            const theme = WORLD_CONFIG.themeColors[this.theme] || WORLD_CONFIG.themeColors[0];
+
+            ctx.clearRect(0, 0, size, size);
+            ctx.fillStyle = theme.bg;
+            ctx.fillRect(0, 0, size, size);
+
+            for (let r = 0; r < this.gridSize; r++) {
+                for (let c = 0; c < this.gridSize; c++) {
+                    if (this.obstacles.has(`${r},${c}`)) continue;
+
+                    const x = this.padding + c * this.cellSize;
+                    const y = this.padding + r * this.cellSize;
+
+                    ctx.fillStyle = theme.cell;
+                    ctx.beginPath();
+                    ctx.roundRect(x + 2, y + 2, this.cellSize - 4, this.cellSize - 4, 5);
+                    ctx.fill();
+
+                    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                    ctx.lineWidth = 0.8;
+                    ctx.stroke();
+                }
+            }
+
+            // 起点
+            if (this.startCell) {
+                const pos = this.cellToPos(this.startCell.r, this.startCell.c);
+                const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, this.cellSize * 0.5);
+                gradient.addColorStop(0, `${theme.start}66`);
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, this.cellSize * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = theme.start;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, this.cellSize * 0.18, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#fff';
+                ctx.font = `bold ${this.cellSize * 0.22}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('起', pos.x, pos.y);
+            }
+
+            // 已访问格子高亮
+            this.path.forEach((cell, index) => {
+                const pos = this.cellToPos(cell.r, cell.c);
+                const alpha = Math.min(0.5, 0.2 + index * 0.015);
+                const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, this.cellSize * 0.4);
+                gradient.addColorStop(0, `${theme.accent}${Math.floor(alpha * 255).toString(16).padStart(2, '0')}`);
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(pos.x - this.cellSize / 2, pos.y - this.cellSize / 2, this.cellSize, this.cellSize);
+            });
+        }
+
+        drawPath() {
+            const ctx = this.pathCtx;
+            const size = this.boardSize;
+            const theme = WORLD_CONFIG.themeColors[this.theme] || WORLD_CONFIG.themeColors[0];
+
+            ctx.clearRect(0, 0, size, size);
+            if (this.path.length < 2) return;
+
+            ctx.strokeStyle = theme.path;
+            ctx.lineWidth = this.cellSize * 0.18;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // 发光
+            ctx.shadowColor = theme.path;
+            ctx.shadowBlur = this.cellSize * 0.15;
+
+            ctx.beginPath();
+            this.path.forEach((cell, i) => {
+                const pos = this.cellToPos(cell.r, cell.c);
+                if (i === 0) ctx.moveTo(pos.x, pos.y);
+                else ctx.lineTo(pos.x, pos.y);
+            });
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // 节点
+            this.path.// 起点
+            const startPos = this.cellToPos(this.path[0].r, this.path[0].c);
+            const sGrad = ctx.createRadialGradient(startPos.x, startPos.y, 0, startPos.x, startPos.y, this.cellSize * 0.25);
+            sGrad.addColorStop(0, theme.start); sGrad.addColorStop(1, 'transparent');
+            ctx.fillStyle = sGrad;
+            ctx.beginPath(); ctx.arc(startPos.x, startPos.y, this.cellSize * 0.25, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = theme.start;
+            ctx.beginPath(); ctx.arc(startPos.x, startPos.y, this.cellSize * 0.09, 0, Math.PI * 2); ctx.fill();
+
+            // 终点（笔尖）
+            if (this.path.length > 1) {
+                const last = this.path[this.path.length - 1];
+                const lPos = this.cellToPos(last.r, last.c);
+                const lGrad = ctx.createRadialGradient(lPos.x, lPos.y, 0, lPos.x, lPos.y, this.cellSize * 0.3);
+                lGrad.addColorStop(0, theme.accent); lGrad.addColorStop(1, 'transparent');
+                ctx.fillStyle = lGrad;
+                ctx.beginPath(); ctx.arc(lPos.x, lPos.y, this.cellSize * 0.3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = theme.accent;
+                ctx.beginPath(); ctx.arc(lPos.x, lPos.y, this.cellSize * 0.09, 0, Math.PI * 2); ctx.fill();
+            }
+        }       }
+onnectionParticles();
         }
 
         drawGrid() {
