@@ -558,46 +558,41 @@
     // ==================== 关卡配置 ====================
     const LEVELS = [];
     
-    // 生成关卡：4x4 -> 5x5 -> 6x6 -> 7x7 -> 8x8 -> 9x9(不规则) -> 10x10(不规则)
-    // 30关渐进难度
+    // 生成关卡：关卡1入门，关卡2-30全部超难难度
     function generateLevels() {
         const configs = [
-            // 4x4 (1-5)
+            // 关卡1：入门教学 (4x4)
             { size: 4, obstacles: 0, theme: 0 },
-            { size: 4, obstacles: 0, theme: 0 },
-            { size: 4, obstacles: 0, theme: 1 },
-            { size: 4, obstacles: 0, theme: 1 },
-            { size: 4, obstacles: 0, theme: 1 },
-            // 5x5 (6-10)
-            { size: 5, obstacles: 0, theme: 1 },
-            { size: 5, obstacles: 1, theme: 1 },
-            { size: 5, obstacles: 2, theme: 2 },
-            { size: 5, obstacles: 2, theme: 2 },
-            { size: 5, obstacles: 3, theme: 2 },
-            // 6x6 (11-15)
-            { size: 6, obstacles: 2, theme: 2 },
-            { size: 6, obstacles: 3, theme: 3 },
-            { size: 6, obstacles: 4, theme: 3 },
-            { size: 6, obstacles: 5, theme: 3 },
-            { size: 6, obstacles: 6, theme: 4 },
-            // 7x7 (16-20)
-            { size: 7, obstacles: 4, theme: 4 },
-            { size: 7, obstacles: 6, theme: 4 },
-            { size: 7, obstacles: 8, theme: 0 },
-            { size: 7, obstacles: 10, theme: 0 },
-            { size: 7, obstacles: 12, theme: 1 },
-            // 8x8 (21-25)
-            { size: 8, obstacles: 8, theme: 1 },
-            { size: 8, obstacles: 12, theme: 2 },
-            { size: 8, obstacles: 16, theme: 2 },
-            { size: 8, obstacles: 20, theme: 3 },
-            { size: 8, obstacles: 24, theme: 3 },
-            // 9x9 (26-30)
-            { size: 9, obstacles: 16, theme: 4 },
-            { size: 9, obstacles: 24, theme: 4 },
-            { size: 9, obstacles: 32, theme: 0 },
-            { size: 9, obstacles: 40, theme: 1 },
-            { size: 9, obstacles: 48, theme: 2 }
+            // 关卡2-30：超难难度 (9x9 和 10x10)
+            { size: 9, obstacles: 25, theme: 1 },  // 2
+            { size: 9, obstacles: 28, theme: 2 },  // 3
+            { size: 9, obstacles: 30, theme: 3 },  // 4
+            { size: 9, obstacles: 32, theme: 4 },  // 5
+            { size: 9, obstacles: 35, theme: 0 },  // 6
+            { size: 9, obstacles: 38, theme: 1 },  // 7
+            { size: 9, obstacles: 40, theme: 2 },  // 8
+            { size: 10, obstacles: 30, theme: 3 }, // 9 (10x10开始)
+            { size: 10, obstacles: 35, theme: 4 }, // 10
+            { size: 10, obstacles: 38, theme: 0 }, // 11
+            { size: 10, obstacles: 40, theme: 1 }, // 12
+            { size: 10, obstacles: 42, theme: 2 }, // 13
+            { size: 10, obstacles: 45, theme: 3 }, // 14
+            { size: 10, obstacles: 48, theme: 4 }, // 15
+            { size: 10, obstacles: 50, theme: 0 }, // 16
+            { size: 10, obstacles: 52, theme: 1 }, // 17
+            { size: 10, obstacles: 55, theme: 2 }, // 18
+            { size: 10, obstacles: 58, theme: 3 }, // 19
+            { size: 10, obstacles: 60, theme: 4 }, // 20
+            { size: 10, obstacles: 62, theme: 0 }, // 21
+            { size: 10, obstacles: 65, theme: 1 }, // 22
+            { size: 10, obstacles: 68, theme: 2 }, // 23
+            { size: 10, obstacles: 70, theme: 3 }, // 24
+            { size: 10, obstacles: 72, theme: 4 }, // 25
+            { size: 10, obstacles: 75, theme: 0 }, // 26 (障碍物占比接近50%)
+            { size: 10, obstacles: 78, theme: 1 }, // 27
+            { size: 10, obstacles: 80, theme: 2 }, // 28
+            { size: 10, obstacles: 82, theme: 3 }, // 29
+            { size: 10, obstacles: 85, theme: 4 }, // 30 (终极难度)
         ];
         
         configs.forEach((cfg, i) => {
@@ -605,8 +600,8 @@
                 gridSize: cfg.size,
                 obstacles: cfg.obstacles,
                 theme: cfg.theme,
-                time: Math.max(45, 120 - i * 2.5),
-                baseScore: 100 + i * 20
+                time: i === 0 ? 120 : Math.max(60, 90 - Math.floor(i / 5) * 5), // 关卡1时间充裕，超难关60-90秒
+                baseScore: 100 + i * 30 // 超难关分数更高
             });
         });
     }
