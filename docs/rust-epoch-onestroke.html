@@ -2,591 +2,1430 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>末日锈纪 - 一笔连</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>末日锈纪：一笔觉醒</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        :root {
+            --bg-primary: #0a0a12;
+            --bg-secondary: #12121f;
+            --accent-gold: #ffd700;
+            --accent-glow: #ffed4e;
+            --color-human: #4fc3f7;
+            --color-zombie: #81c784;
+            --color-robot: #ffb74d;
+            --color-particle: #e040fb;
+            --text-primary: #ffffff;
+            --text-secondary: #8a8a9a;
+        }
         
         body {
-            font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+        
+        /* 粒子背景 */
+        .particle-bg {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .game-container {
+            position: relative;
+            z-index: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        
-        .title {
-            font-size: 28px;
-            background: linear-gradient(135deg, #ffd700, #ffed4e);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 5px;
-        }
-        
-        .subtitle {
-            font-size: 14px;
-            color: #888;
-        }
-        
-        .stats {
-            display: flex;
-            justify-content: space-around;
-            width: 100%;
+            min-height: 100vh;
+            padding: 16px;
             max-width: 500px;
-            margin: 15px 0;
-            padding: 15px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 12px;
+            margin: 0 auto;
         }
         
-        .stat-item {
-            text-align: center;
+        /* 顶部状态栏 */
+        .top-bar {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: linear-gradient(180deg, rgba(255,215,0,0.1) 0%, transparent 100%);
+            border-radius: 16px;
+            margin-bottom: 12px;
         }
         
-        .stat-label {
-            font-size: 12px;
-            color: #888;
-            margin-bottom: 5px;
+        .level-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
-        .stat-value {
+        .level-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--accent-gold), #ff8c00);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            box-shadow: 0 4px 12px rgba(255,215,0,0.3);
+        }
+        
+        .level-info {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .level-name {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        
+        .timer-ring {
+            position: relative;
+            width: 56px; height: 56px;
+        }
+        
+        .timer-ring svg {
+            transform: rotate(-90deg);
+            width: 56px; height: 56px;
+        }
+        
+        .timer-ring circle {
+            fill: none;
+            stroke-width: 4;
+        }
+        
+        .timer-bg { stroke: rgba(255,255,255,0.1); }
+        
+        .timer-progress {
+            stroke: var(--accent-gold);
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+        
+        .timer-text {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--accent-gold);
+        }
+        
+        .score-display {
+            text-align: right;
+        }
+        
+        .score-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        
+        .score-value {
             font-size: 20px;
             font-weight: bold;
-            color: #ffd700;
+            color: var(--accent-glow);
         }
         
-        #game-board {
+        /* 游戏区域 */
+        .game-board {
             position: relative;
-            width: min(90vw, 500px);
-            height: min(90vw, 500px);
-            background: rgba(0,0,0,0.3);
-            border-radius: 12px;
+            width: calc(100vw - 32px);
+            max-width: 450px;
+            aspect-ratio: 1;
+            background: var(--bg-secondary);
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            box-shadow: 
+                0 0 0 2px rgba(255,215,0,0.2),
+                0 20px 60px rgba(0,0,0,0.5),
+                inset 0 0 60px rgba(255,215,0,0.05);
             touch-action: none;
         }
         
-        canvas {
+        .board-canvas {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
         }
         
         #grid-canvas { z-index: 1; }
-        #path-canvas { z-index: 2; pointer-events: none; }
+        #path-canvas { z-index: 2; }
         #input-canvas { z-index: 3; }
+        #fx-canvas { z-index: 4; pointer-events: none; }
         
+        /* 进度指示 */
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            margin: 16px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-gold), var(--color-particle));
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        
+        /* 操作按钮 */
         .controls {
             display: flex;
-            gap: 10px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-            justify-content: center;
+            gap: 12px;
+            margin-top: 8px;
         }
         
-        .btn {
-            padding: 12px 24px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-        
-        .btn:hover { 
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-        
-        .btn:active { 
-            transform: translateY(0);
-        }
-        
-        .instructions {
-            max-width: 500px;
-            margin: 20px auto;
-            padding: 20px;
-            background: rgba(255,255,255,0.05);
+        .ctrl-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 20px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 12px;
+            color: var(--text-primary);
             font-size: 14px;
-            line-height: 1.8;
-            color: #aaa;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
         
-        .instructions h3 {
-            color: #ffd700;
-            margin-bottom: 10px;
+        .ctrl-btn:active {
+            transform: scale(0.96);
+            background: rgba(255,255,255,0.15);
         }
         
+        .ctrl-btn svg {
+            width: 18px; height: 18px;
+        }
+        
+        /* 关卡提示 */
+        .level-hint {
+            margin-top: 16px;
+            padding: 12px 20px;
+            background: rgba(255,215,0,0.08);
+            border: 1px solid rgba(255,215,0,0.15);
+            border-radius: 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-align: center;
+            max-width: 100%;
+        }
+        
+        .level-hint strong {
+            color: var(--accent-gold);
+        }
+        
+        /* 剧情对话框 */
         .dialog-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.85);
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s ease;
+        }
+        
+        .dialog-overlay.active {
+            opacity: 1;
+            visibility: visible;
         }
         
         .dialog-box {
-            background: linear-gradient(135deg, #2d2d44, #1a1a2e);
-            padding: 40px;
-            border-radius: 16px;
-            max-width: 90%;
-            width: 400px;
+            background: linear-gradient(145deg, #1a1a2e, #0f0f1a);
+            padding: 32px;
+            border-radius: 24px;
+            max-width: 340px;
+            width: 90%;
             text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            transform: scale(0.9);
+            transition: transform 0.4s ease;
             border: 1px solid rgba(255,215,0,0.2);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        
+        .dialog-overlay.active .dialog-box {
+            transform: scale(1);
+        }
+        
+        .dialog-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
         }
         
         .dialog-title {
-            font-size: 24px;
-            color: #ffd700;
-            margin-bottom: 20px;
+            font-size: 22px;
+            font-weight: bold;
+            color: var(--accent-gold);
+            margin-bottom: 12px;
         }
+        
+        .dialog-text {
+            font-size: 15px;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+        
+        .dialog-btn {
+            padding: 14px 32px;
+            background: linear-gradient(135deg, var(--accent-gold), #ff8c00);
+            border: none;
+            border-radius: 12px;
+            color: #000;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .dialog-btn:active {
+            transform: scale(0.96);
+        }
+        
+        /* 胜利动画 */
+        .victory-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.5s ease;
+        }
+        
+        .victory-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .victory-card {
+            background: linear-gradient(145deg, #1a1a2e, #0f0f1a);
+            padding: 40px;
+            border-radius: 28px;
+            text-align: center;
+            transform: scale(0.8);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 2px solid rgba(255,215,0,0.3);
+            box-shadow: 0 0 80px rgba(255,215,0,0.2);
+            max-width: 320px;
+            width: 90%;
+        }
+        
+        .victory-overlay.active .victory-card {
+            transform: scale(1);
+        }
+        
+        .victory-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            animation: victoryBounce 0.6s ease infinite alternate;
+        }
+        
+        @keyframes victoryBounce {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+        
+        .victory-title {
+            font-size: 28px;
+            font-weight: bold;
+            background: linear-gradient(135deg, var(--accent-gold), var(--color-particle));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        
+        .victory-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+        
+        .victory-stats {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .victory-stat {
+            text-align: center;
+        }
+        
+        .victory-stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent-gold);
+        }
+        
+        .victory-stat-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        
+        .victory-btns {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        
+        .victory-btn {
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+        
+        .victory-btn-primary {
+            background: linear-gradient(135deg, var(--accent-gold), #ff8c00);
+            color: #000;
+        }
+        
+        .victory-btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-primary);
+        }
+        
+        /* 震动效果 */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        
+        .shake { animation: shake 0.4s ease; }
+        
+        /* 脉冲效果 */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255,215,0,0.4); }
+            70% { box-shadow: 0 0 0 20px rgba(255,215,0,0); }
+            100% { box-shadow: 0 0 0 0 rgba(255,215,0,0); }
+        }
+        
+        .pulse { animation: pulse 0.6s ease; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="title">⚡ 末日锈纪 - 一笔连</div>
-        <div class="subtitle">用一笔连接所有能量节点</div>
-    </div>
+    <canvas class="particle-bg" id="particle-bg"></canvas>
     
-    <div class="stats">
-        <div class="stat-item">
-            <div class="stat-label">关卡</div>
-            <div class="stat-value" id="level">1/30</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-label">已连接</div>
-            <div class="stat-value" id="connected">0/16</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-label">时间</div>
-            <div class="stat-value" id="timer">60</div>
-        </div>
-    </div>
-    
-    <div id="game-board">
-        <canvas id="grid-canvas"></canvas>
-        <canvas id="path-canvas"></canvas>
-        <canvas id="input-canvas"></canvas>
-    </div>
-    
-    <div class="controls">
-        <button class="btn" onclick="game.resetPath()">🔄 重置</button>
-        <button class="btn" onclick="game.showSolution()">👁 显示答案</button>
-    </div>
-    
-    <div class="instructions">
-        <h3>📖 游戏说明</h3>
-        <p><strong>目标：</strong>用一笔（不抬起鼠标/手指）连接所有格子</p>
-        <p><strong>规则：</strong></p>
-        <p>1. 从绿色起点开始</p>
-        <p>2. 点击相邻格子连接路径</p>
-        <p>3. 每个格子只能经过一次</p>
-        <p>4. 连接所有格子即可过关</p>
-    </div>
-    
-    <script>
-        // 游戏配置
-        const LEVELS = [];
-        for (let i = 1; i <= 30; i++) {
-            let gridSize;
-            if (i <= 5) gridSize = 4;
-            else if (i <= 10) gridSize = 5;
-            else if (i <= 15) gridSize = 6;
-            else if (i <= 20) gridSize = 7;
-            else gridSize = 8;
+    <div class="game-container">
+        <div class="top-bar">
+            <div class="level-badge">
+                <div class="level-icon">⚡</div>
+                <div>
+                    <div class="level-info" id="level-text">第 1 关</div>
+                    <div class="level-name" id="level-name">赫尔墨斯节点</div>
+                </div>
+            </div>
             
+            <div class="timer-ring">
+                <svg viewBox="0 0 56 56">
+                    <circle class="timer-bg" cx="28" cy="28" r="24"/>
+                    <circle class="timer-progress" id="timer-circle" cx="28" cy="28" r="24" 
+                            stroke-dasharray="150.8" stroke-dashoffset="0"/>
+                </svg>
+                <div class="timer-text" id="timer-text">60</div>
+            </div>
+            
+            <div class="score-display">
+                <div class="score-label">得分</div>
+                <div class="score-value" id="score-text">0</div>
+            </div>
+        </div>
+        
+        <div class="game-board" id="game-board">
+            <canvas class="board-canvas" id="grid-canvas"></canvas>
+            <canvas class="board-canvas" id="path-canvas"></canvas>
+            <canvas class="board-canvas" id="input-canvas"></canvas>
+            <canvas class="board-canvas" id="fx-canvas"></canvas>
+        </div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+        
+        <div class="controls">
+            <button class="ctrl-btn" id="btn-reset">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                    <path d="M3 3v5h5"/>
+                </svg>
+                重置
+            </button>
+            <button class="ctrl-btn" id="btn-hint">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                提示
+            </button>
+        </div>
+        
+        <div class="level-hint" id="level-hint">
+            <strong>引导者低语：</strong>用手指滑动连接所有<strong>赫尔墨斯碎片</strong>
+        </div>
+    </div>
+    
+    <!-- 剧情对话框 -->
+    <div class="dialog-overlay" id="story-dialog">
+        <div class="dialog-box">
+            <div class="dialog-icon" id="dialog-icon">🌌</div>
+            <div class="dialog-title" id="dialog-title">末日之后</div>
+            <div class="dialog-text" id="dialog-text">2500年，赫尔墨斯粒子的光芒已经黯淡...</div>
+            <button class="dialog-btn" id="dialog-btn">继续</button>
+        </div>
+    </div>
+    
+    <!-- 胜利界面 -->
+    <div class="victory-overlay" id="victory-overlay">
+        <div class="victory-card">
+            <div class="victory-icon">🎉</div>
+            <div class="victory-title">觉醒成功</div>
+            <div class="victory-subtitle" id="victory-subtitle">能量节点已激活</div>
+            <div class="victory-stats">
+                <div class="victory-stat">
+                    <div class="victory-stat-value" id="victory-time">--</div>
+                    <div class="victory-stat-label">用时</div>
+                </div>
+                <div class="victory-stat">
+                    <div class="victory-stat-value" id="victory-score">--</div>
+                    <div class="victory-stat-label">得分</div>
+                </div>
+            </div>
+            <div class="victory-btns">
+                <button class="victory-btn victory-btn-secondary" id="btn-replay">重玩</button>
+                <button class="victory-btn victory-btn-primary" id="btn-next">下一关</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ==================== 末日锈纪世界观配置 ====================
+    const WORLD_CONFIG = {
+        // 关卡名称和剧情
+        levels: [
+            { name: '赫尔墨斯节点', hint: '用手指滑动连接所有赫尔墨斯碎片', icon: '✴️' },
+            { name: '回光者遗址', hint: '残存意识的亡者在低语...', icon: '👁️', story: '「我记得你...在你毁掉我们之前。」' },
+            { name: '散铁残骸', hint: '觉醒的机器在寻找自我', icon: '⚙️', story: '「雅典娜不是神，我们才是。」' },
+            { name: '雅典娜核心', hint: '超级AI的最后堡垒', icon: '🧠', story: '「人类创造了神，神创造了毁灭。」' },
+            { name: '赫尔墨斯源泉', hint: '一切开始的地方', icon: '💫', story: '「这里...就是一切的起源。」' }
+        ],
+        
+        // 关卡主题颜色
+        themeColors: [
+            { bg: '#1a1a2e', accent: '#ffd700', cell: '#2d2d44' },
+            { bg: '#1e2a3a', accent: '#81c784', cell: '#263545' },
+            { bg: '#2a1e3a', accent: '#e040fb', cell: '#3d2d44' },
+            { bg: '#2a2a1e', accent: '#ffb74d', cell: '#3d3d2d' },
+            { bg: '#0a1a2a', accent: '#4fc3f7', cell: '#1a2d3d' }
+        ],
+        
+        // 胜利文案
+        victoryMessages: [
+            '赫尔墨斯碎片重新发光',
+            '能量通道已激活',
+            '又一块拼图完成',
+            '觉醒之路又进一步',
+            '节点网络扩展中...'
+        ]
+    };
+
+    // ==================== 关卡配置 ====================
+    const LEVELS = [];
+    
+    // 生成关卡：4x4 -> 5x5 -> 6x6 -> 7x7 -> 8x8 -> 9x9(不规则) -> 10x10(不规则)
+    // 30关渐进难度
+    function generateLevels() {
+        const configs = [
+            // 4x4 (1-5)
+            { size: 4, obstacles: 0, theme: 0 },
+            { size: 4, obstacles: 0, theme: 0 },
+            { size: 4, obstacles: 0, theme: 1 },
+            { size: 4, obstacles: 0, theme: 1 },
+            { size: 4, obstacles: 0, theme: 1 },
+            // 5x5 (6-10)
+            { size: 5, obstacles: 0, theme: 1 },
+            { size: 5, obstacles: 1, theme: 1 },
+            { size: 5, obstacles: 2, theme: 2 },
+            { size: 5, obstacles: 2, theme: 2 },
+            { size: 5, obstacles: 3, theme: 2 },
+            // 6x6 (11-15)
+            { size: 6, obstacles: 2, theme: 2 },
+            { size: 6, obstacles: 3, theme: 3 },
+            { size: 6, obstacles: 4, theme: 3 },
+            { size: 6, obstacles: 5, theme: 3 },
+            { size: 6, obstacles: 6, theme: 4 },
+            // 7x7 (16-20)
+            { size: 7, obstacles: 4, theme: 4 },
+            { size: 7, obstacles: 6, theme: 4 },
+            { size: 7, obstacles: 8, theme: 0 },
+            { size: 7, obstacles: 10, theme: 0 },
+            { size: 7, obstacles: 12, theme: 1 },
+            // 8x8 (21-25)
+            { size: 8, obstacles: 8, theme: 1 },
+            { size: 8, obstacles: 12, theme: 2 },
+            { size: 8, obstacles: 16, theme: 2 },
+            { size: 8, obstacles: 20, theme: 3 },
+            { size: 8, obstacles: 24, theme: 3 },
+            // 9x9 (26-30)
+            { size: 9, obstacles: 16, theme: 4 },
+            { size: 9, obstacles: 24, theme: 4 },
+            { size: 9, obstacles: 32, theme: 0 },
+            { size: 9, obstacles: 40, theme: 1 },
+            { size: 9, obstacles: 48, theme: 2 }
+        ];
+        
+        configs.forEach((cfg, i) => {
             LEVELS.push({
-                gridSize: gridSize,
-                time: Math.max(30, 90 - i * 2)
+                gridSize: cfg.size,
+                obstacles: cfg.obstacles,
+                theme: cfg.theme,
+                time: Math.max(45, 120 - i * 2.5),
+                baseScore: 100 + i * 20
+            });
+        });
+    }
+    
+    generateLevels();
+
+    // ==================== 游戏主类 ====================
+    class OneStrokeGame {
+        constructor() {
+            // Canvas
+            this.gridCanvas = document.getElementById('grid-canvas');
+            this.pathCanvas = document.getElementById('path-canvas');
+            this.inputCanvas = document.getElementById('input-canvas');
+            this.fxCanvas = document.getElementById('fx-canvas');
+            
+            this.gridCtx = this.gridCanvas.getContext('2d');
+            this.pathCtx = this.pathCanvas.getContext('2d');
+            this.fxCtx = this.fxCanvas.getContext('2d');
+            
+            // 状态
+            this.level = 1;
+            this.score = 0;
+            this.timeLeft = 60;
+            this.maxTime = 60;
+            this.timerInterval = null;
+            this.isCompleted = false;
+            this.path = [];
+            this.solution = [];
+            this.obstacles = new Set();
+            this.startCell = null;
+            this.gridSize = 4;
+            this.cellSize = 0;
+            this.padding = 0;
+            
+            // 触摸追踪
+            this.isDrawing = false;
+            this.lastCell = null;
+            this.trailParticles = [];
+            
+            // 特效
+            this.particles = [];
+            this.flashEffect = null;
+            
+            // 初始化
+            this.setupCanvas();
+            this.bindEvents();
+            this.startLevel(1);
+            this.showIntro();
+            this.initBackgroundParticles();
+        }
+        
+        setupCanvas() {
+            const board = document.getElementById('game-board');
+            const size = board.clientWidth;
+            
+            [this.gridCanvas, this.pathCanvas, this.inputCanvas, this.fxCanvas].forEach(canvas => {
+                const dpr = window.devicePixelRatio || 2;
+                canvas.width = size * dpr;
+                canvas.height = size * dpr;
+                canvas.style.width = size + 'px';
+                canvas.style.height = size + 'px';
+                const ctx = canvas.getContext('2d');
+                ctx.scale(dpr, dpr);
+            });
+            
+            this.boardSize = size;
+        }
+        
+        initBackgroundParticles() {
+            const canvas = document.getElementById('particle-bg');
+            const ctx = canvas.getContext('2d');
+            
+            const resize = () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            };
+            resize();
+            window.addEventListener('resize', resize);
+            
+            // 创建粒子
+            this.bgParticles = [];
+            for (let i = 0; i < 50; i++) {
+                this.bgParticles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2 + 1,
+                    speedX: (Math.random() - 0.5) * 0.5,
+                    speedY: (Math.random() - 0.5) * 0.5,
+                    alpha: Math.random() * 0.5 + 0.2
+                });
+            }
+            
+            const animate = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                this.bgParticles.forEach(p => {
+                    p.x += p.speedX;
+                    p.y += p.speedY;
+                    
+                    if (p.x < 0) p.x = canvas.width;
+                    if (p.x > canvas.width) p.x = 0;
+                    if (p.y < 0) p.y = canvas.height;
+                    if (p.y > canvas.height) p.y = 0;
+                    
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 215, 0, ${p.alpha})`;
+                    ctx.fill();
+                });
+                
+                requestAnimationFrame(animate);
+            };
+            animate();
+        }
+        
+        bindEvents() {
+            const canvas = this.inputCanvas;
+            
+            // 鼠标事件
+            canvas.addEventListener('mousedown', (e) => this.handleStart(e));
+            canvas.addEventListener('mousemove', (e) => this.handleMove(e));
+            canvas.addEventListener('mouseup', () => this.handleEnd());
+            canvas.addEventListener('mouseleave', () => this.handleEnd());
+            
+            // 触摸事件
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.handleStart(e.touches[0]);
+            }, { passive: false });
+            
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                this.handleMove(e.touches[0]);
+            }, { passive: false });
+            
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                this.handleEnd();
+            }, { passive: false });
+            
+            // 按钮
+            document.getElementById('btn-reset').addEventListener('click', () => this.reset());
+            document.getElementById('btn-hint').addEventListener('click', () => this.showHint());
+            
+            // 胜利界面按钮
+            document.getElementById('btn-replay').addEventListener('click', () => this.replay());
+            document.getElementById('btn-next').addEventListener('click', () => this.nextLevel());
+            
+            // 剧情对话框
+            document.getElementById('dialog-btn').addEventListener('click', () => this.closeDialog());
+            
+            // 窗口调整
+            window.addEventListener('resize', () => {
+                this.setupCanvas();
+                this.render();
             });
         }
         
-        class Game {
-            constructor() {
-                this.level = 1;
-                this.timeLeft = 60;
-                this.timer = null;
-                this.gridSize = 4;
-                this.path = [];
-                this.solution = [];
-                this.startCell = null;
-                this.isCompleted = false;
-                
-                this.gridCanvas = document.getElementById('grid-canvas');
-                this.pathCanvas = document.getElementById('path-canvas');
-                this.inputCanvas = document.getElementById('input-canvas');
-                
-                this.gridCtx = this.gridCanvas.getContext('2d');
-                this.pathCtx = this.pathCanvas.getContext('2d');
-                
-                this.init();
-            }
+        getEventPos(e) {
+            const rect = this.inputCanvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+        
+        posToCell(x, y) {
+            const padding = this.padding;
+            const usableSize = this.boardSize - padding * 2;
+            const cellSize = usableSize / this.gridSize;
             
-            init() {
-                this.setupCanvas();
-                this.startLevel(this.level);
-                this.bindEvents();
-            }
+            const col = Math.floor((x - padding) / cellSize);
+            const row = Math.floor((y - padding) / cellSize);
             
-            setupCanvas() {
-                const board = document.getElementById('game-board');
-                const size = board.clientWidth;
-                
-                [this.gridCanvas, this.pathCanvas, this.inputCanvas].forEach(canvas => {
-                    canvas.width = size * 2;
-                    canvas.height = size * 2;
-                    canvas.style.width = size + 'px';
-                    canvas.style.height = size + 'px';
-                });
-                
-                this.cellSize = size / this.gridSize;
-            }
+            return { r: row, c: col };
+        }
+        
+        handleStart(e) {
+            if (this.isCompleted) return;
             
-            startLevel(level) {
-                this.level = level;
-                const config = LEVELS[level - 1];
-                this.gridSize = config.gridSize;
-                this.timeLeft = config.time;
-                this.path = [];
-                this.isCompleted = false;
-                
-                this.setupCanvas();
-                this.generatePuzzle();
-                this.render();
-                this.updateStats();
-                this.startTimer();
-            }
+            const pos = this.getEventPos(e);
+            const cell = this.posToCell(pos.x, pos.y);
             
-            generatePuzzle() {
-                const size = this.gridSize;
-                this.solution = [];
-                
-                // 使用蛇形路径作为答案
-                for (let r = 0; r < size; r++) {
-                    if (r % 2 === 0) {
-                        for (let c = 0; c < size; c++) {
-                            this.solution.push({ r, c });
-                        }
-                    } else {
-                        for (let c = size - 1; c >= 0; c--) {
-                            this.solution.push({ r, c });
-                        }
-                    }
+            if (!this.isValidCell(cell.r, cell.c)) return;
+            
+            // 必须从起点开始
+            if (this.path.length === 0) {
+                if (cell.r === this.startCell.r && cell.c === this.startCell.c) {
+                    this.isDrawing = true;
+                    this.path.push({ r: cell.r, c: cell.c });
+                    this.lastCell = cell;
+                    this.addTrailParticle(pos.x, pos.y);
+                    this.render();
+                    this.updateUI();
                 }
-                
-                this.startCell = this.solution[0];
-            }
-            
-            render() {
-                this.drawGrid();
-                this.drawPath();
-            }
-            
-            drawGrid() {
-                const ctx = this.gridCtx;
-                const size = this.gridCanvas.width;
-                const cellSize = size / this.gridSize;
-                
-                ctx.clearRect(0, 0, size, size);
-                
-                // 绘制背景
-                ctx.fillStyle = '#2d2d44';
-                ctx.fillRect(0, 0, size, size);
-                
-                // 绘制网格线
-                ctx.strokeStyle = '#3d3d55';
-                ctx.lineWidth = 2;
-                
-                for (let i = 0; i <= this.gridSize; i++) {
-                    ctx.beginPath();
-                    ctx.moveTo(i * cellSize, 0);
-                    ctx.lineTo(i * cellSize, size);
-                    ctx.stroke();
-                    
-                    ctx.beginPath();
-                    ctx.moveTo(0, i * cellSize);
-                    ctx.lineTo(size, i * cellSize);
-                    ctx.stroke();
+            } else {
+                // 可以从任意已访问的格子继续
+                const last = this.path[this.path.length - 1];
+                if (cell.r === last.r && cell.c === last.c) {
+                    this.isDrawing = true;
+                    this.lastCell = cell;
                 }
-                
-                // 绘制已访问的格子
-                this.path.forEach((cell, index) => {
-                    const gradient = ctx.createRadialGradient(
-                        (cell.c + 0.5) * cellSize,
-                        (cell.r + 0.5) * cellSize,
-                        0,
-                        (cell.c + 0.5) * cellSize,
-                        (cell.r + 0.5) * cellSize,
-                        cellSize * 0.5
-                    );
-                    gradient.addColorStop(0, `rgba(76, 175, 80, ${0.5 + index * 0.5 / this.path.length})`);
-                    gradient.addColorStop(1, 'rgba(76, 175, 80, 0.1)');
-                    
-                    ctx.fillStyle = gradient;
-                    ctx.fillRect(cell.c * cellSize + 2, cell.r * cellSize + 2, cellSize - 4, cellSize - 4);
-                });
-                
-                // 绘制起点
-                if (this.startCell && this.path.length === 0) {
-                    const { r, c } = this.startCell;
-                    ctx.fillStyle = '#4caf50';
-                    ctx.beginPath();
-                    ctx.arc(
-                        (c + 0.5) * cellSize,
-                        (r + 0.5) * cellSize,
-                        cellSize * 0.3,
-                        0,
-                        Math.PI * 2
-                    );
-                    ctx.fill();
-                    
-                    ctx.fillStyle = 'white';
-                    ctx.font = `bold ${cellSize * 0.4}px sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('起', (c + 0.5) * cellSize, (r + 0.5) * cellSize);
-                }
-                
-                // 绘制当前路径末尾
-                if (this.path.length > 0) {
-                    const last = this.path[this.path.length - 1];
-                    ctx.fillStyle = '#ffd700';
-                    ctx.beginPath();
-                    ctx.arc(
-                        (last.c + 0.5) * cellSize,
-                        (last.r + 0.5) * cellSize,
-                        cellSize * 0.2,
-                        0,
-                        Math.PI * 2
-                    );
-                    ctx.fill();
-                }
-            }
-            
-            drawPath() {
-                const ctx = this.pathCtx;
-                const size = this.pathCanvas.width;
-                const cellSize = size / this.gridSize;
-                
-                ctx.clearRect(0, 0, size, size);
-                
-                if (this.path.length < 2) return;
-                
-                ctx.strokeStyle = '#ffd700';
-                ctx.lineWidth = cellSize * 0.15;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                
-                ctx.beginPath();
-                ctx.moveTo(
-                    (this.path[0].c + 0.5) * cellSize,
-                    (this.path[0].r + 0.5) * cellSize
-                );
-                
-                for (let i = 1; i < this.path.length; i++) {
-                    ctx.lineTo(
-                        (this.path[i].c + 0.5) * cellSize,
-                        (this.path[i].r + 0.5) * cellSize
-                    );
-                }
-                
-                ctx.stroke();
-                
-                // 绘制路径点
-                this.path.forEach((cell, index) => {
-                    ctx.fillStyle = index === 0 ? '#4caf50' : '#ffd700';
-                    ctx.beginPath();
-                    ctx.arc(
-                        (cell.c + 0.5) * cellSize,
-                        (cell.r + 0.5) * cellSize,
-                        cellSize * 0.12,
-                        0,
-                        Math.PI * 2
-                    );
-                    ctx.fill();
-                });
-            }
-            
-            bindEvents() {
-                const canvas = this.inputCanvas;
-                
-                canvas.addEventListener('click', (e) => {
-                    if (this.isCompleted) return;
-                    
-                    const rect = canvas.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    
-                    const cellSize = rect.width / this.gridSize;
-                    const c = Math.floor(x / cellSize);
-                    const r = Math.floor(y / cellSize);
-                    
-                    if (r >= 0 && r < this.gridSize && c >= 0 && c < this.gridSize) {
-                        this.handleCellClick({ r, c });
-                    }
-                });
-                
-                // 触摸事件
-                canvas.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    if (this.isCompleted) return;
-                    
-                    const touch = e.touches[0];
-                    const rect = canvas.getBoundingClientRect();
-                    const x = touch.clientX - rect.left;
-                    const y = touch.clientY - rect.top;
-                    
-                    const cellSize = rect.width / this.gridSize;
-                    const c = Math.floor(x / cellSize);
-                    const r = Math.floor(y / cellSize);
-                    
-                    if (r >= 0 && r < this.gridSize && c >= 0 && c < this.gridSize) {
-                        this.handleCellClick({ r, c });
-                    }
-                }, { passive: false });
-            }
-            
-            handleCellClick(cell) {
-                if (this.path.length === 0) {
-                    // 必须点击起点
-                    if (cell.r === this.startCell.r && cell.c === this.startCell.c) {
-                        this.path.push({ r: cell.r, c: cell.c });
-                        this.render();
-                        this.updateStats();
-                    }
-                } else {
-                    const last = this.path[this.path.length - 1];
-                    
-                    // 检查是否相邻且未访问
-                    if (this.isNeighbor(last, cell) && !this.isVisited(cell)) {
-                        this.path.push(cell);
-                        this.render();
-                        this.updateStats();
-                        this.checkWin();
-                    }
-                }
-            }
-            
-            isNeighbor(a, b) {
-                return Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
-            }
-            
-            isVisited(cell) {
-                return this.path.some(c => c.r === cell.r && c.c === cell.c);
-            }
-            
-            checkWin() {
-                if (this.path.length === this.gridSize * this.gridSize) {
-                    this.isCompleted = true;
-                    clearInterval(this.timer);
-                    
-                    setTimeout(() => {
-                        alert('🎉 胜利！已连接所有格子！');
-                        if (this.level < 30) {
-                            this.nextLevel();
-                        }
-                    }, 500);
-                }
-            }
-            
-            nextLevel() {
-                this.startLevel(this.level + 1);
-            }
-            
-            resetPath() {
-                if (this.isCompleted) return;
-                
-                this.path = [];
-                this.render();
-                this.updateStats();
-            }
-            
-            showSolution() {
-                if (this.isCompleted) return;
-                
-                const ctx = this.pathCtx;
-                const size = this.pathCanvas.width;
-                const cellSize = size / this.gridSize;
-                
-                ctx.clearRect(0, 0, size, size);
-                
-                // 绘制答案路径
-                ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)';
-                ctx.lineWidth = cellSize * 0.15;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                
-                ctx.beginPath();
-                ctx.moveTo(
-                    (this.solution[0].c + 0.5) * cellSize,
-                    (this.solution[0].r + 0.5) * cellSize
-                );
-                
-                for (let i = 1; i < this.solution.length; i++) {
-                    ctx.lineTo(
-                        (this.solution[i].c + 0.5) * cellSize,
-                        (this.solution[i].r + 0.5) * cellSize
-                    );
-                }
-                
-                ctx.stroke();
-                
-                setTimeout(() => {
-                    if (!this.isCompleted) {
-                        this.drawPath();
-                    }
-                }, 2000);
-            }
-            
-            startTimer() {
-                clearInterval(this.timer);
-                this.timer = setInterval(() => {
-                    this.timeLeft--;
-                    document.getElementById('timer').textContent = this.timeLeft;
-                    
-                    if (this.timeLeft <= 0) {
-                        clearInterval(this.timer);
-                        this.gameOver();
-                    }
-                }, 1000);
-            }
-            
-            gameOver() {
-                this.isCompleted = true;
-                alert('⏰ 时间到！点击重置重试。');
-            }
-            
-            updateStats() {
-                document.getElementById('level').textContent = `${this.level}/30`;
-                document.getElementById('connected').textContent = `${this.path.length}/${this.gridSize * this.gridSize}`;
-                document.getElementById('timer').textContent = this.timeLeft;
             }
         }
         
-        let game;
-        window.addEventListener('load', () => {
-            game = new Game();
-        });
+        handleMove(e) {
+            if (!this.isDrawing || this.isCompleted) return;
+            
+            const pos = this.getEventPos(e);
+            const cell = this.posToCell(pos.x, pos.y);
+            
+            if (!this.isValidCell(cell.r, cell.c)) return;
+            
+            // 检查是否相邻
+            const last = this.path[this.path.length - 1];
+            const isAdjacent = Math.abs(cell.r - last.r) + Math.abs(cell.c - last.c) === 1;
+            
+            if (!isAdjacent) return;
+            
+            // 检查是否已访问
+            if (this.isVisited(cell)) return;
+            
+            // 添加到路径
+            this.path.push({ r: cell.r, c: cell.c });
+            this.lastCell = cell;
+            this.addTrailParticle(pos.x, pos.y);
+            this.render();
+            this.updateUI();
+            
+            // 检查是否完成
+            this.checkWin();
+        }
+        
+        handleEnd() {
+            this.isDrawing = false;
+            this.lastCell = null;
+        }
+        
+        isValidCell(r, c) {
+            if (r < 0 || r >= this.gridSize || c < 0 || c >= this.gridSize) return false;
+            const key = `${r},${c}`;
+            if (this.obstacles.has(key)) return false;
+            return true;
+        }
+        
+        isVisited(cell) {
+            return this.path.some(p => p.r === cell.r && p.c === cell.c);
+        }
+        
+        addTrailParticle(x, y) {
+            this.trailParticles.push({
+                x, y,
+                alpha: 1,
+                size: this.cellSize * 0.3
+            });
+        }
+        
+        // ==================== 关卡生成 ====================
+        startLevel(level) {
+            this.level = level;
+            const config = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
+            
+            this.gridSize = config.gridSize;
+            this.obstacles = this.generateObstacles(config);
+            this.timeLeft = config.time;
+            this.maxTime = config.time;
+            this.path = [];
+            this.isCompleted = false;
+            
+            // 计算cellSize和padding
+            this.padding = this.boardSize * 0.05;
+            const usableSize = this.boardSize - this.padding * 2;
+            this.cellSize = usableSize / this.gridSize;
+            
+            // 生成谜题
+            this.generatePuzzle();
+            
+            // 更新UI
+            this.updateUI();
+            this.render();
+            this.startTimer();
+            
+            // 更新主题
+            this.applyTheme(config.theme);
+            
+            // 显示关卡提示
+            this.showLevelHint();
+        }
+        
+        generateObstacles(config) {
+            const obstacles = new Set();
+            const totalCells = config.gridSize * config.gridSize;
+            const obstacleCount = Math.min(config.obstacles, Math.floor(totalCells * 0.4));
+            
+            // 随机放置障碍物，确保起点和终点不被阻挡
+            let attempts = 0;
+            while (obstacles.size < obstacleCount && attempts < 1000) {
+                attempts++;
+                const r = Math.floor(Math.random() * config.gridSize);
+                const c = Math.floor(Math.random() * config.gridSize);
+                
+                // 不遮挡角落（起点和终点）
+                const isCorner = (r === 0 && c === 0) || 
+                                (r === config.gridSize - 1 && c === config.gridSize - 1) ||
+                                (r === 0 && c === config.gridSize - 1) ||
+                                (r === config.gridSize - 1 && c === 0);
+                
+                if (!isCorner) {
+                    obstacles.add(`${r},${c}`);
+                }
+            }
+            
+            return obstacles;
+        }
+        
+        generatePuzzle() {
+            // 生成哈密顿路径
+            const grid = Array(this.gridSize).fill(null).map(() => Array(this.gridSize).fill(0));
+            
+            // 标记障碍物
+            this.obstacles.forEach(key => {
+                const [r, c] = key.split(',').map(Number);
+                grid[r][c] = -1;
+            });
+            
+            // 使用回溯法生成哈密顿路径
+            this.solution = this.findHamiltonPath(grid);
+            
+            if (this.solution.length === 0) {
+                // 如果找不到路径，使用蛇形路径作为备用
+                this.solution = this.generateSnakePath();
+            }
+            
+            // 起点为路径的第一个格子
+            this.startCell = this.solution[0];
+        }
+        
+        findHamiltonPath(grid) {
+            const size = this.gridSize;
+            const visited = Array(size).fill(null).map(() => Array(size).fill(false));
+            
+            // 标记障碍物已访问
+            this.obstacles.forEach(key => {
+                const [r, c] = key.split(',').map(Number);
+                visited[r][c] = true;
+            });
+            
+            const path = [];
+            let found = false;
+            
+            const dfs = (r, c, len) => {
+                if (found) return;
+                
+                if (len === size * size - this.obstacles.size) {
+                    path.push({ r, c });
+                    found = true;
+                    return;
+                }
+                
+                path.push({ r, c });
+                visited[r][c] = true;
+                
+                // Warnsdorff规则：优先选择邻居最少的格子
+                const neighbors = this.getNeighbors(r, c, visited);
+                neighbors.sort((a, b) => {
+                    const aMoves = this.countMoves(a.r, a.c, visited);
+                    const bMoves = this.countMoves(b.r, b.c, visited);
+                    return aMoves - bMoves;
+                });
+                
+                for (const n of neighbors) {
+                    if (found) break;
+                    dfs(n.r, n.c, len + 1);
+                }
+                
+                if (!found) {
+                    path.pop();
+                    visited[r][c] = false;
+                }
+            };
+            
+            // 从左上角开始
+            dfs(0, 0, 1);
+            
+            return found ? [...path] : [];
+        }
+        
+        getNeighbors(r, c, visited) {
+            const dirs = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+            const neighbors = [];
+            
+            for (const [dr, dc] of dirs) {
+                const nr = r + dr;
+                const nc = c + dc;
+                
+                if (nr >= 0 && nr < this.gridSize && 
+                    nc >= 0 && nc < this.gridSize && 
+                    !visited[nr][nc]) {
+                    neighbors.push({ r: nr, c: nc });
+                }
+            }
+            
+            return neighbors;
+        }
+        
+        countMoves(r, c, visited) {
+            return this.getNeighbors(r, c, visited).length;
+        }
+        
+        generateSnakePath() {
+            const path = [];
+            for (let r = 0; r < this.gridSize; r++) {
+                if (r % 2 === 0) {
+                    for (let c = 0; c < this.gridSize; c++) {
+                        if (!this.obstacles.has(`${r},${c}`)) {
+                            path.push({ r, c });
+                        }
+                    }
+                } else {
+                    for (let c = this.gridSize - 1; c >= 0; c--) {
+                        if (!this.obstacles.has(`${r},${c}`)) {
+                            path.push({ r, c });
+                        }
+                    }
+                }
+            }
+            return path;
+        }
+        
+        // ==================== 渲染 ====================
+        render() {
+            this.drawGrid();
+            this.drawPath();
+            this.drawTrailParticles();
+        }
+        
+        drawGrid() {
+            const ctx = this.gridCtx;
+            const size = this.boardSize;
+            
+            ctx.clearRect(0, 0, size, size);
+            
+            // 背景
+            const theme = WORLD_CONFIG.themeColors[LEVELS[this.level - 1]?.theme || 0];
+            ctx.fillStyle = theme.bg;
+            ctx.fillRect(0, 0, size, size);
+            
+            // 绘制网格
+            for (let r = 0; r < this.gridSize; r++) {
+                for (let c = 0; c < this.gridSize; c++) {
+                    if (this.obstacles.has(`${r},${c}`)) continue;
+                    
+                    const x = this.padding + c * this.cellSize;
+                    const y = this.padding + r * this.cellSize;
+                    
+                    // 格子背景
+                    ctx.fillStyle = theme.cell;
+                    ctx.beginPath();
+                    ctx.roundRect(x + 2, y + 2, this.cellSize - 4, this.cellSize - 4, 6);
+                    ctx.fill();
+                    
+                    // 格子边框
+                    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+            
+            // 绘制起点标记
+            if (this.startCell) {
+                const x = this.padding + this.startCell.c * this.cellSize + this.cellSize / 2;
+                const y = this.padding + this.startCell.r * this.cellSize + this.cellSize / 2;
+                
+                // 发光效果
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, this.cellSize * 0.6);
+                gradient.addColorStop(0, 'rgba(79, 195, 247, 0.6)');
+                gradient.addColorStop(1, 'rgba(79, 195, 247, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, this.cellSize * 0.6, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 起点圆圈
+                ctx.fillStyle = '#4fc3f7';
+                ctx.beginPath();
+                ctx.arc(x, y, this.cellSize * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 起始文字
+                ctx.fillStyle = '#fff';
+                ctx.font = `bold ${this.cellSize * 0.25}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('起', x, y);
+            }
+            
+            // 绘制已访问格子高亮
+            this.path.forEach((cell, index) => {
+                const x = this.padding + cell.c * this.cellSize;
+                const y = this.padding + cell.r * this.cellSize;
+                
+                const gradient = ctx.createRadialGradient(
+                    x + this.cellSize / 2, y + this.cellSize / 2, 0,
+                    x + this.cellSize / 2, y + this.cellSize / 2, this.cellSize * 0.5
+                );
+                gradient.addColorStop(0, `rgba(255, 215, 0, ${0.4 + index * 0.02})`);
+                gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, y, this.cellSize, this.cellSize);
+            });
+        }
+        
+        drawPath() {
+            const ctx = this.pathCtx;
+            const size = this.boardSize;
+            
+            ctx.clearRect(0, 0, size, size);
+            
+            if (this.path.length < 2) return;
+            
+            // 路径线
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = this.cellSize * 0.2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            this.path.forEach((cell, i) => {
+                const x = this.padding + cell.c * this.cellSize + this.cellSize / 2;
+                const y = this.padding + cell.r * this.cellSize + this.cellSize / 2;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.stroke();
+            
+            // 路径点
+            this.path.forEach((cell, i) => {
+                const x = this.padding + cell.c * this.cellSize + this.cellSize / 2;
+                const y = this.padding + cell.r * this.cellSize + this.cellSize / 2;
+                
+                // 发光
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, this.cellSize * 0.3);
+                gradient.addColorStop(0, i === 0 ? '#4fc3f7' : '#ffd700');
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, this.cellSize * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 圆点
+                ctx.fillStyle = i === 0 ? '#4fc3f7' : '#ffd700';
+                ctx.beginPath();
+                ctx.arc(x, y, this.cellSize * 0.1, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        
+        drawTrailParticles() {
+            const ctx = this.fxCtx;
+            const size = this.boardSize;
+            
+            ctx.clearRect(0, 0, size, size);
+            
+            this.trailParticles.forEach((p, i) => {
+                p.alpha -= 0.05;
+                p.size *= 0.95;
+                
+                if (p.alpha <= 0) {
+                    this.trailParticles.splice(i, 1);
+                    return;
+                }
+                
+                const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+                gradient.addColorStop(0, `rgba(255, 215, 0, ${p.alpha})`);
+                gradient.addColorStop(1, 'transparent');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        
+        applyTheme(themeIndex) {
+            const theme = WORLD_CONFIG.themeColors[themeIndex] || WORLD_CONFIG.themeColors[0];
+            document.documentElement.style.setProperty('--theme-bg', theme.bg);
+            document.documentElement.style.setProperty('--theme-accent', theme.accent);
+        }
+        
+        // ==================== 游戏逻辑 ====================
+        checkWin() {
+            const totalCells = this.gridSize * this.gridSize - this.obstacles.size;
+            
+            if (this.path.length === totalCells) {
+                this.isCompleted = true;
+                clearInterval(this.timerInterval);
+                
+                // 计算得分
+                const timeBonus = this.timeLeft * 2;
+                const levelBonus = this.level * 10;
+                const roundScore = LEVELS[this.level - 1].baseScore + timeBonus + levelBonus;
+                this.score += roundScore;
+                
+                this.showVictory(roundScore);
+            }
+        }
+        
+        reset() {
+            if (this.isCompleted) return;
+            
+            this.path = [];
+            this.trailParticles = [];
+            this.render();
+            this.updateUI();
+            
+            // 震动反馈
+            document.getElementById('game-board').classList.add('shake');
+            setTimeout(() => {
+                document.getElementById('game-board').classList.remove('shake');
+            }, 400);
+        }
+        
+        showHint() {
+            if (this.isCompleted) return;
+            
+            // 闪烁提示
+            const board = document.getElementById('game-board');
+            board.classList.add('pulse');
+            setTimeout(() => board.classList.remove('pulse'), 600);
+            
+            // 绘制提示线（半透明）
+            const ctx = this.pathCtx;
+            const size = this.boardSize;
+            
+            // 清除现有路径
+            this.pathCtx.clearRect(0, 0, size, size);
+            this.drawPath();
+            
+            // 绘制提示路径
+            if (this.solution.length > 0) {
+                ctx.strokeStyle = 'rgba(255, 215, 0, 0.25)';
+                ctx.lineWidth = this.cellSize * 0.12;
+                ctx.setLineDash([8, 8]);
+                
+                ctx.beginPath();
+                this.solution.forEach((cell, i) => {
+                    const x = this.padding + cell.c * this.cellSize + this.cellSize / 2;
+                    const y = this.padding + cell.r * this.cellSize + this.cellSize / 2;
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            
+            // 2秒后恢复
+            setTimeout(() => {
+                this.pathCtx.clearRect(0, 0, size, size);
+                this.drawPath();
+            }, 2000);
+        }
+        
+        replay() {
+            this.hideVictory();
+            this.startLevel(this.level);
+        }
+        
+        nextLevel() {
+            this.hideVictory();
+            if (this.level < 30) {
+                this.startLevel(this.level + 1);
+            } else {
+                // 通关所有关卡
+                this.showEnding();
+            }
+        }
+        
+        // ==================== UI更新 ====================
+        updateUI() {
+            const config = LEVELS[this.level - 1];
+            const totalCells = this.gridSize * this.gridSize - this.obstacles.size;
+            
+            // 顶部状态
+            document.getElementById('level-text').textContent = `第 ${this.level} 关`;
+            document.getElementById('level-name').textContent = WORLD_CONFIG.levels[(this.level - 1) % 5].name;
+            document.getElementById('score-text').textContent = this.score;
+            document.getElementById('timer-text').textContent = this.timeLeft;
+            
+            // 进度条
+            const progress = (this.path.length / totalCells) * 100;
+            document.getElementById('progress-fill').style.width = `${progress}%`;
+            
+            // 计时器圆环
+            const circumference = 150.8; // 2 * PI * 24
+            const offset = circumference * (1 - this.timeLeft / this.maxTime);
+            document.getElementById('timer-circle').style.strokeDashoffset = offset;
+            
+            // 计时器颜色
+            const timerCircle = document.getElementById('timer-circle');
+            if (this.timeLeft <= 10) {
+                timerCircle.style.stroke = '#ff4444';
+            } else if (this.timeLeft <= 20) {
+                timerCircle.style.stroke = '#ffaa00';
+            } else {
+                timerCircle.style.stroke = 'var(--accent-gold)';
+            }
+        }
+        
+        startTimer() {
+            clearInterval(this.timerInterval);
+            this.timerInterval = setInterval(() => {
+                this.timeLeft--;
+                this.updateUI();
+                
+                if (this.timeLeft <= 0) {
+                    clearInterval(this.timerInterval);
+                    this.gameOver();
+                }
+            }, 1000);
+        }
+        
+        gameOver() {
+            this.isCompleted = true;
+            
+            // 显示游戏结束
+            document.getElementById('victory-subtitle').textContent = '时间耗尽，能量消散...';
+            document.getElementById('victory-time').textContent = '--';
+            document.getElementById('victory-score').textContent = this.score;
+            document.getElementById('victory-overlay').classList.add('active');
+            document.getElementById('btn-next').textContent = '重新挑战';
+        }
+        
+        showVictory(roundScore) {
+            const messages = WORLD_CONFIG.victoryMessages;
+            document.getElementById('victory-subtitle').textContent = messages[(this.level - 1) % messages.length];
+            document.getElementById('victory-time').textContent = `${this.maxTime - this.timeLeft}秒`;
+            document.getElementById('victory-score').textContent = `+${roundScore}`;
+            document.getElementById('victory-overlay').classList.add('active');
+            document.getElementById('btn-next').textContent = this.level < 30 ? '下一关' : '查看结局';
+        }
+        
+        hideVictory() {
+            document.getElementById('victory-overlay').classList.remove('active');
+        }
+        
+        showLevelHint() {
+            const worldLevel = WORLD_CONFIG.levels[(this.level - 1) % 5];
+            const hintEl = document.getElementById('level-hint');
+            
+            if (worldLevel.story && this.level % 5 === 2) {
+                // 每5关显示一句剧情
+                hintEl.innerHTML = `<strong>${worldLevel.icon} ${worldLevel.name}：</strong>${worldLevel.story}`;
+            } else {
+                hintEl.innerHTML = `<strong>引导者低语：</strong>${worldLevel.hint}`;
+            }
+        }
+        
+        showIntro() {
+            const dialog = document.getElementById('story-dialog');
+            const icon = document.getElementById('dialog-icon');
+            const title = document.getElementById('dialog-title');
+            const text = document.getElementById('dialog-text');
+            const btn = document.getElementById('dialog-btn');
+            
+            icon.textContent = '🌌';
+            title.textContent = '末日锈纪';
+            text.textContent = '2500年，赫尔墨斯粒子的光芒已经黯淡。三方势力的战争让地球沉默太久。是时候让碎片重新连接，让能量再次流动...';
+            btn.textContent = '开始觉醒';
+            
+            dialog.classList.add('active');
+        }
+        
+        closeDialog() {
+            document.getElementById('story-dialog').classList.remove('active');
+        }
+        
+        showEnding() {
+            const dialog = document.getElementById('story-dialog');
+            const icon = document.getElementById('dialog-icon');
+            const title = document.getElementById('dialog-title');
+            const text = document.getElementById('dialog-text');
+            const btn = document.getElementById('dialog-btn');
+            
+            icon.textContent = '✨';
+            title.textContent = '觉醒完成';
+            text.textContent = '所有赫尔墨斯碎片已经重新连接，能量网络全面激活。回光者和散铁的遗骸发出最后的光芒... 新的时代即将开始。';
+            btn.textContent = '重新开始';
+            btn.onclick = () => {
+                this.score = 0;
+                this.closeDialog();
+                this.startLevel(1);
+                btn.onclick = () => this.closeDialog(); // 恢复原状
+            };
+            
+            dialog.classList.add('active');
+        }
+    }
+
+    // ==================== 启动游戏 ====================
+    let game;
+    window.addEventListener('load', () => {
+        game = new OneStrokeGame();
+    });
+    
+    // 阻止默认触摸行为
+    document.addEventListener('touchmove', (e) => {
+        if (e.target.closest('#game-board')) {
+            e.preventDefault();
+        }
+    }, { passive: false });
     </script>
 </body>
 </html>
