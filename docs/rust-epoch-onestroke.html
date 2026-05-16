@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>末日锈纪 - 一笔连</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .title {
+            font-size: 28px;
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            color: #888;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 500px;
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffd700;
+        }
+        
+        #game-board {
+            position: relative;
+            width: min(90vw, 500px);
+            height: min(90vw, 500px);
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            touch-action: none;
+        }
+        
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #grid-canvas { z-index: 1; }
+        #path-canvas { z-index: 2; pointer-events: none; }
+        #input-canvas { z-index: 3; }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active { 
+            transform: translateY(0);
+        }
+        
+        .instructions {
+            max-width: 500px;
+            margin: 20px auto;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.8;
+            color: #aaa;
+        }
+        
+        .instructions h3 {
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+        
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .dialog-box {
+            background: linear-gradient(135deg, #2d2d44, #1a1a2e);
+            padding: 40px;
+            border-radius: 16px;
+            max-width: 90%;
+            width: 400px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,215,0,0.2);
+        }
+        
+        .dialog-title {
+            font-size: 24px;
+            color: #ffd700;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">⚡ 末日锈纪 - 一笔连</div>
+        <div class="subtitle">用一笔连接所有能量节点</div>
+    </div>
+    
+    <div class="stats">
+        <div class="stat-item">
+            <div class="stat-label">关卡</div>
+            <div class="stat-value" id="level">1/30</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">已连接</div>
+            <div class="stat-value" id="connected">0/16</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">时间</div>
+            <div class="stat-value" id="timer">60</div>
+        </div>
+    </div>
+    
+    <div id="game-board">
+        <canvas id="grid-canvas"></canvas>
+        <canvas id="path-canvas"></canvas>
+        <canvas id="input-canvas"></canvas>
+    </div>
+    
+    <div class="controls">
+        <button class="btn" onclick="game.resetPath()">🔄 重置</button>
+        <button class="btn" onclick="game.showSolution()">👁 显示答案</button>
+    </div>
+    
+    <div class="instructions">
+        <h3>📖 游戏说明</h3>
+        <p><strong>目标：</strong>用一笔（不抬起鼠标/手指）连接所有格子</p>
+        <p><strong>规则：</strong></p>
+        <p>1. 从绿色起点开始</p>
+        <p>2. 点击相邻格子连接路径</p>
+        <p>3. 每个格子只能经过一次</p>
+        <p>4. 连接所有格子即可过关</p>
+    </div>
+    
+    <script>
+        // 游戏配置
+        const LEVELS = [];
+        for (let i = 1; i <= 30; i++) {
+            let gridSize;
+            if (i <= 5) gridSize = 4;
+            else if (i <= 10) gridSize = 5;
+            else if (i <= 15) gridSize = 6;
+            else if (i <= 20) gridSize = 7;
+            else gridSize = 8;
+            
+            LEVELS.push({
+                gridSize: gridSize,
+                time: Math.max(30, 90 - i * 2)
+            });
+        }
+        
+        class Game {
+            constructor() {
+                this.level = 1;
+                this.timeLeft = 60;
+                this.timer = null;
+                this.gridSize = 4;
+                this.path = [];
+                this.solution = [];
+                this.startCell = null;
+                this.isCompleted = false;
+                
+                this.gridCanvas = document.getElementById('grid-canvas');
+                this.pathCanvas = document.getElementById('path-canvas');
+                this.inputCanvas = document.getElementById('input-canvas');
+                
+                this.gridCtx = this.gridCanvas.getContext('2d');
+                this.pathCtx = this.pathCanvas.getContext('2d');
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupCanvas();
+                this.startLevel(this.level);
+                this.bindEvents();
+            }
+            
+            setupCanvas() {
+                const board = document.getElementById('game-board');
+                const size = board.clientWidth;
+                
+                [this.gridCanvas, this.pathCanvas, this.inputCanvas].forEach(canvas => {
+                    canvas.width = size * 2;
+                    canvas.height = size * 2;
+                    canvas.style.width = size + 'px';
+                    canvas.style.height = size + 'px';
+                });
+                
+                this.cellSize = size / this.gridSize;
+            }
+            
+            startLevel(level) {
+                this.level = level;
+                const config = LEVELS[level - 1];
+                this.gridSize = config.gridSize;
+                this.timeLeft = config.time;
+                this.path = [];
+                this.isCompleted = false;
+                
+                this.setupCanvas();
+                this.generatePuzzle();
+                this.render();
+                this.updateStats();
+                this.startTimer();
+            }
+            
+            generatePuzzle() {
+                const size = this.gridSize;
+                this.solution = [];
+                
+                // 使用蛇形路径作为答案
+                for (let r = 0; r < size; r++) {
+                    if (r % 2 === 0) {
+                        for (let c = 0; c < size; c++) {
+                            this.solution.push({ r, c });
+                        }
+                    } else {
+                        for (let c = size - 1; c >= 0; c--) {
+                            this.solution.push({ r, c });
+                        }
+                    }
+                }
+                
+                this.startCell = this.solution[0];
+            }
+            
+            render() {
+                this.drawGrid();
+                this.drawPath();
+            }
+            
+            drawGrid() {
+                const ctx = this.gridCtx;
+                const size = this.gridCanvas.width;
+                const cellSize = size / this.gridSize;
+                
+                ctx.clearRect(0, 0, size, size);
+                
+                // 绘制背景
+                ctx.fillStyle = '#2d2d44';
+                ctx.fillRect(0, 0, size, size);
+                
+                // 绘制网格线
+                ctx.strokeStyle = '#3d3d55';
+                ctx.lineWidth = 2;
+                
+                for (let i = 0; i <= this.gridSize; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(i * cellSize, 0);
+                    ctx.lineTo(i * cellSize, size);
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(0, i * cellSize);
+                    ctx.lineTo(size, i * cellSize);
+                    ctx.stroke();
+                }
+                
+                // 绘制已访问的格子
+                this.path.forEach((cell, index) => {
+                    const gradient = ctx.createRadialGradient(
+                        (cell.c + 0.5) * cellSize,
+                        (cell.r + 0.5) * cellSize,
+                        0,
+                        (cell.c + 0.5) * cellSize,
+                        (cell.r + 0.5) * cellSize,
+                        cellSize * 0.5
+                    );
+                    gradient.addColorStop(0, `rgba(76, 175, 80, ${0.5 + index * 0.5 / this.path.length})`);
+                    gradient.addColorStop(1, 'rgba(76, 175, 80, 0.1)');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(cell.c * cellSize + 2, cell.r * cellSize + 2, cellSize - 4, cellSize - 4);
+                });
+                
+                // 绘制起点
+                if (this.startCell && this.path.length === 0) {
+                    const { r, c } = this.startCell;
+                    ctx.fillStyle = '#4caf50';
+                    ctx.beginPath();
+                    ctx.arc(
+                        (c + 0.5) * cellSize,
+                        (r + 0.5) * cellSize,
+                        cellSize * 0.3,
+                        0,
+                        Math.PI * 2
+                    );
+                    ctx.fill();
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = `bold ${cellSize * 0.4}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('起', (c + 0.5) * cellSize, (r + 0.5) * cellSize);
+                }
+                
+                // 绘制当前路径末尾
+                if (this.path.length > 0) {
+                    const last = this.path[this.path.length - 1];
+                    ctx.fillStyle = '#ffd700';
+                    ctx.beginPath();
+                    ctx.arc(
+                        (last.c + 0.5) * cellSize,
+                        (last.r + 0.5) * cellSize,
+                        cellSize * 0.2,
+                        0,
+                        Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+            }
+            
+            drawPath() {
+                const ctx = this.pathCtx;
+                const size = this.pathCanvas.width;
+                const cellSize = size / this.gridSize;
+                
+                ctx.clearRect(0, 0, size, size);
+                
+                if (this.path.length < 2) return;
+                
+                ctx.strokeStyle = '#ffd700';
+                ctx.lineWidth = cellSize * 0.15;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                ctx.beginPath();
+                ctx.moveTo(
+                    (this.path[0].c + 0.5) * cellSize,
+                    (this.path[0].r + 0.5) * cellSize
+                );
+                
+                for (let i = 1; i < this.path.length; i++) {
+                    ctx.lineTo(
+                        (this.path[i].c + 0.5) * cellSize,
+                        (this.path[i].r + 0.5) * cellSize
+                    );
+                }
+                
+                ctx.stroke();
+                
+                // 绘制路径点
+                this.path.forEach((cell, index) => {
+                    ctx.fillStyle = index === 0 ? '#4caf50' : '#ffd700';
+                    ctx.beginPath();
+                    ctx.arc(
+                        (cell.c + 0.5) * cellSize,
+                        (cell.r + 0.5) * cellSize,
+                        cellSize * 0.12,
+                        0,
+                        Math.PI * 2
+                    );
+                    ctx.fill();
+                });
+            }
+            
+            bindEvents() {
+                const canvas = this.inputCanvas;
+                
+                canvas.addEventListener('click', (e) => {
+                    if (this.isCompleted) return;
+                    
+                    const rect = canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    const cellSize = rect.width / this.gridSize;
+                    const c = Math.floor(x / cellSize);
+                    const r = Math.floor(y / cellSize);
+                    
+                    if (r >= 0 && r < this.gridSize && c >= 0 && c < this.gridSize) {
+                        this.handleCellClick({ r, c });
+                    }
+                });
+                
+                // 触摸事件
+                canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    if (this.isCompleted) return;
+                    
+                    const touch = e.touches[0];
+                    const rect = canvas.getBoundingClientRect();
+                    const x = touch.clientX - rect.left;
+                    const y = touch.clientY - rect.top;
+                    
+                    const cellSize = rect.width / this.gridSize;
+                    const c = Math.floor(x / cellSize);
+                    const r = Math.floor(y / cellSize);
+                    
+                    if (r >= 0 && r < this.gridSize && c >= 0 && c < this.gridSize) {
+                        this.handleCellClick({ r, c });
+                    }
+                }, { passive: false });
+            }
+            
+            handleCellClick(cell) {
+                if (this.path.length === 0) {
+                    // 必须点击起点
+                    if (cell.r === this.startCell.r && cell.c === this.startCell.c) {
+                        this.path.push({ r: cell.r, c: cell.c });
+                        this.render();
+                        this.updateStats();
+                    }
+                } else {
+                    const last = this.path[this.path.length - 1];
+                    
+                    // 检查是否相邻且未访问
+                    if (this.isNeighbor(last, cell) && !this.isVisited(cell)) {
+                        this.path.push(cell);
+                        this.render();
+                        this.updateStats();
+                        this.checkWin();
+                    }
+                }
+            }
+            
+            isNeighbor(a, b) {
+                return Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
+            }
+            
+            isVisited(cell) {
+                return this.path.some(c => c.r === cell.r && c.c === cell.c);
+            }
+            
+            checkWin() {
+                if (this.path.length === this.gridSize * this.gridSize) {
+                    this.isCompleted = true;
+                    clearInterval(this.timer);
+                    
+                    setTimeout(() => {
+                        alert('🎉 胜利！已连接所有格子！');
+                        if (this.level < 30) {
+                            this.nextLevel();
+                        }
+                    }, 500);
+                }
+            }
+            
+            nextLevel() {
+                this.startLevel(this.level + 1);
+            }
+            
+            resetPath() {
+                if (this.isCompleted) return;
+                
+                this.path = [];
+                this.render();
+                this.updateStats();
+            }
+            
+            showSolution() {
+                if (this.isCompleted) return;
+                
+                const ctx = this.pathCtx;
+                const size = this.pathCanvas.width;
+                const cellSize = size / this.gridSize;
+                
+                ctx.clearRect(0, 0, size, size);
+                
+                // 绘制答案路径
+                ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)';
+                ctx.lineWidth = cellSize * 0.15;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                ctx.beginPath();
+                ctx.moveTo(
+                    (this.solution[0].c + 0.5) * cellSize,
+                    (this.solution[0].r + 0.5) * cellSize
+                );
+                
+                for (let i = 1; i < this.solution.length; i++) {
+                    ctx.lineTo(
+                        (this.solution[i].c + 0.5) * cellSize,
+                        (this.solution[i].r + 0.5) * cellSize
+                    );
+                }
+                
+                ctx.stroke();
+                
+                setTimeout(() => {
+                    if (!this.isCompleted) {
+                        this.drawPath();
+                    }
+                }, 2000);
+            }
+            
+            startTimer() {
+                clearInterval(this.timer);
+                this.timer = setInterval(() => {
+                    this.timeLeft--;
+                    document.getElementById('timer').textContent = this.timeLeft;
+                    
+                    if (this.timeLeft <= 0) {
+                        clearInterval(this.timer);
+                        this.gameOver();
+                    }
+                }, 1000);
+            }
+            
+            gameOver() {
+                this.isCompleted = true;
+                alert('⏰ 时间到！点击重置重试。');
+            }
+            
+            updateStats() {
+                document.getElementById('level').textContent = `${this.level}/30`;
+                document.getElementById('connected').textContent = `${this.path.length}/${this.gridSize * this.gridSize}`;
+                document.getElementById('timer').textContent = this.timeLeft;
+            }
+        }
+        
+        let game;
+        window.addEventListener('load', () => {
+            game = new Game();
+        });
+    </script>
+</body>
+</html>
