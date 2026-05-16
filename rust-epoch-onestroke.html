@@ -1573,7 +1573,7 @@
             ctx.shadowBlur = 0;
 
             // 节点
-            this.path.// 起点
+            // 起点
             const startPos = this.cellToPos(this.path[0].r, this.path[0].c);
             const sGrad = ctx.createRadialGradient(startPos.x, startPos.y, 0, startPos.x, startPos.y, this.cellSize * 0.25);
             sGrad.addColorStop(0, theme.start); sGrad.addColorStop(1, 'transparent');
@@ -1593,8 +1593,36 @@
                 ctx.fillStyle = theme.accent;
                 ctx.beginPath(); ctx.arc(lPos.x, lPos.y, this.cellSize * 0.09, 0, Math.PI * 2); ctx.fill();
             }
-        }       }
-onnectionParticles();
+        }
+
+        drawConnectionParticles() {
+            const ctx = this.fxCtx;
+            const size = this.boardSize;
+
+            ctx.clearRect(0, 0, size, size);
+
+            this.connectionParticles.forEach((p, i) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.04;
+                p.size *= 0.96;
+
+                if (p.alpha <= 0) {
+                    this.connectionParticles.splice(i, 1);
+                    return;
+                }
+
+                const theme = WORLD_CONFIG.themeColors[this.theme] || WORLD_CONFIG.themeColors[0];
+                const alphaHex = Math.floor(p.alpha * 255).toString(16).padStart(2, "0");
+                const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+                gradient.addColorStop(0, theme.path + alphaHex);
+                gradient.addColorStop(1, "transparent");
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
         }
 
         drawGrid() {
