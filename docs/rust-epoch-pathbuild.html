@@ -3,773 +3,751 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>末日锈纪:筑路求生 V2.1</title>
+    <title>末日锈纪:筑路求生 V3.0</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { background: #0a0a12; overflow: hidden; user-select: none; font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif; }
-        #gameContainer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        body{background:#0a0a12;overflow:hidden;user-select:none;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif}
+        canvas{display:block;touch-action:none}
+        .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100}
+        .modal-box{background:#1a1a2e;border-radius:20px;padding:30px 40px;text-align:center;max-width:300px;border:1px solid rgba(255,215,0,.3)}
+        .modal-box.fail{border-color:rgba(255,68,68,.3)}
+        .modal-box h2{color:#ffd700;font-size:22px;margin-bottom:8px}
+        .modal-box.fail h2{color:#ff6b6b}
+        .modal-box p{color:#8a8a9a;font-size:14px;margin-bottom:20px}
+        .modal-box button{padding:10px 24px;border:none;border-radius:12px;font-size:15px;font-weight:bold;cursor:pointer}
+        .btn-next{background:#ffd700;color:#000}
+        .btn-retry{background:#ff4444;color:#fff}
+        .countdown{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:72px;color:#ffd700;font-weight:bold;z-index:200;text-shadow:0 0 20px rgba(255,215,0,.5);animation:pulse .3s ease-in-out}
+        @keyframes pulse{0%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.5);opacity:.5}100%{transform:translate(-50%,-50%) scale(1)}}
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body>
-<div id="gameContainer"></div>
+<canvas id="c"></canvas>
 <script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// ---- Constants ----
 const PIECE_DEFS = {
-    I: { cells: [[0,-1],[0,0],[0,1],[0,2]], color: 0x4fc3f7 },
-    L: { cells: [[0,-1],[0,0],[0,1],[1,1]], color: 0x81c784 },
-    J: { cells: [[0,-1],[0,0],[0,1],[-1,1]], color: 0xffb74d },
-    T: { cells: [[0,-1],[0,0],[0,1],[1,0]], color: 0xe040fb },
-    S: { cells: [[0,0],[1,0],[0,1],[-1,1]], color: 0xff6b6b },
-    Z: { cells: [[0,0],[-1,0],[0,1],[1,1]], color: 0xffd700 },
-    O: { cells: [[0,0],[1,0],[0,1],[1,1]], color: 0xff8c00 },
-    I3: { cells: [[0,-1],[0,0],[0,1]], color: 0x64b5f6 },
-    L3: { cells: [[0,0],[0,1],[1,1]], color: 0xa5d6a7 },
-    DOT: { cells: [[0,0]], color: 0x90a4ae },
-    I2: { cells: [[0,0],[0,1]], color: 0x80cbc4 },
+    I: { cells:[[0,-1],[0,0],[0,1],[0,2]], color:'#4fc3f7' },
+    L: { cells:[[0,-1],[0,0],[0,1],[1,1]], color:'#81c784' },
+    J: { cells:[[0,-1],[0,0],[0,1],[-1,1]], color:'#ffb74d' },
+    T: { cells:[[0,-1],[0,0],[0,1],[1,0]], color:'#e040fb' },
+    S: { cells:[[0,0],[1,0],[0,1],[-1,1]], color:'#ff6b6b' },
+    Z: { cells:[[0,0],[-1,0],[0,1],[1,1]], color:'#ffd700' },
+    O: { cells:[[0,0],[1,0],[0,1],[1,1]], color:'#ff8c00' },
+    I3:{ cells:[[0,-1],[0,0],[0,1]], color:'#64b5f6' },
+    L3:{ cells:[[0,0],[0,1],[1,1]], color:'#a5d6a7' },
+    DOT:{cells:[[0,0]], color:'#90a4ae' },
+    I2:{ cells:[[0,0],[0,1]], color:'#80cbc4' },
 };
-
 const LEVELS = [
-    { grid: 5, start: [2,0], end: [2,4], pieces: ['I','I','I3','L3','DOT'], obstacles: [] },
-    { grid: 5, start: [0,0], end: [4,4], pieces: ['I','L','I3','L3','DOT','DOT'], obstacles: [] },
-    { grid: 6, start: [0,0], end: [5,5], pieces: ['I','I','L','T','I3','L3','DOT'], obstacles: [[2,2],[3,3]] },
-    { grid: 6, start: [1,0], end: [4,5], pieces: ['I','I','L','J','T','I3','L3','DOT'], obstacles: [[2,2],[3,3],[0,3]] },
-    { grid: 7, start: [0,0], end: [6,6], pieces: ['I','I','L','J','T','S','Z','I3','DOT','DOT'], obstacles: [[2,2],[3,3],[4,4],[1,4]] },
-    { grid: 7, start: [3,0], end: [3,6], pieces: ['I','I','I','L','J','I3','I3','L3','DOT'], obstacles: [[1,2],[5,2],[1,4],[5,4],[3,3]] },
-    { grid: 8, start: [0,0], end: [7,7], pieces: ['I','I','I','L','J','T','S','Z','O','I3','I3','L3','DOT'], obstacles: [[2,2],[2,5],[5,2],[5,5],[3,4],[4,3]] },
-    { grid: 8, start: [0,7], end: [7,0], pieces: ['I','I','L','L','J','T','T','S','Z','I3','L3','L3','DOT','DOT'], obstacles: [[3,3],[4,4],[2,5],[5,2],[1,3],[6,4]] },
-    { grid: 9, start: [0,0], end: [8,8], pieces: ['I','I','I','I','L','J','T','S','Z','O','I3','I3','L3','DOT','DOT'], obstacles: [[3,3],[4,4],[5,5],[2,6],[6,2],[1,4],[7,4]] },
-    { grid: 10, start: [0,0], end: [9,9], pieces: ['I','I','I','I','L','L','J','J','T','T','S','Z','O','I3','I3','L3','L3','DOT'], obstacles: [[3,3],[4,4],[5,5],[6,6],[2,7],[7,2],[1,5],[8,4]] },
+    { grid:5, start:[2,0], end:[2,4], pieces:['I','I','I3','L3','DOT'], obstacles:[] },
+    { grid:5, start:[0,0], end:[4,4], pieces:['I','L','I3','L3','DOT','DOT'], obstacles:[] },
+    { grid:6, start:[0,0], end:[5,5], pieces:['I','I','L','T','I3','L3','DOT'], obstacles:[[2,2],[3,3]] },
+    { grid:6, start:[1,0], end:[4,5], pieces:['I','I','L','J','T','I3','L3','DOT'], obstacles:[[2,2],[3,3],[0,3]] },
+    { grid:7, start:[0,0], end:[6,6], pieces:['I','I','L','J','T','S','Z','I3','DOT','DOT'], obstacles:[[2,2],[3,3],[4,4],[1,4]] },
+    { grid:7, start:[3,0], end:[3,6], pieces:['I','I','I','L','J','I3','I3','L3','DOT'], obstacles:[[1,2],[5,2],[1,4],[5,4],[3,3]] },
+    { grid:8, start:[0,0], end:[7,7], pieces:['I','I','I','L','J','T','S','Z','O','I3','I3','L3','DOT'], obstacles:[[2,2],[2,5],[5,2],[5,5],[3,4],[4,3]] },
+    { grid:8, start:[0,7], end:[7,0], pieces:['I','I','L','L','J','T','T','S','Z','I3','L3','L3','DOT','DOT'], obstacles:[[3,3],[4,4],[2,5],[5,2],[1,3],[6,4]] },
+    { grid:9, start:[0,0], end:[8,8], pieces:['I','I','I','I','L','J','T','S','Z','O','I3','I3','L3','DOT','DOT'], obstacles:[[3,3],[4,4],[5,5],[2,6],[6,2],[1,4],[7,4]] },
+    { grid:10, start:[0,0], end:[9,9], pieces:['I','I','I','I','L','L','J','J','T','T','S','Z','O','I3','I3','L3','L3','DOT'], obstacles:[[3,3],[4,4],[5,5],[6,6],[2,7],[7,2],[1,5],[8,4]] },
 ];
-
 const LEVEL_NAMES = ['废墟起步','对角求生','暗坑初现','迂回前进','绝地逢生','中路突围','四方围困','逆流而上','深渊通道','终极筑路'];
 const TIMER_SECONDS = 20;
 
-// ============================================================
-// UE FIX NOTES (V2.1):
-// 1. All drawXxx methods destroy old objects before creating new
-// 2. Text objects tracked in arrays for cleanup
-// 3. Drag uses a single persistent listener + state flag
-// 4. Modals fully cleaned on dismiss
-// 5. Resize handled with this.scale.on('resize')
-// 6. Candidate cards larger (cs=26px) for touch
-// 7. 3-2-1 countdown before timer starts
-// 8. Place feedback: flash animation + sound
-// 9. Drop-outside-grid feedback text
-// ============================================================
+// ---- State ----
+let W, H, dpr;
+let gridSize, cellSize, gridOffsetX, gridOffsetY;
+let gridData, startPos, endPos, candidates, placedHistory;
+let currentLevel = 0;
+let won = false, failed = false;
+let timeLeft = TIMER_SECONDS, timerInterval = null;
+let hint = '拖动方块到棋盘上';
 
-class GameScene extends Phaser.Scene {
-    constructor() { super('GameScene'); }
+// Drag
+let dragging = false, dragIdx = -1, dragOffX = 0, dragOffY = 0, dragAnchorX = 0, dragAnchorY = 0;
+let previewAnchor = null, previewValid = false;
+let lastPointerX = 0, lastPointerY = 0;
 
-    create() {
-        this.w = this.cameras.main.width;
-        this.h = this.cameras.main.height;
-        this.currentLevel = 0;
-        this.cellSize = 0;
-        this.gridOffsetX = 0;
-        this.gridOffsetY = 0;
+// Particles
+let particles = [];
 
-        // Tracked objects for cleanup
-        this._gridGfx = null;
-        this._overlayGfx = null;
-        this._topBarGfx = null;
-        this._textObjects = [];
-        this._candContainer = null;
-        this._undoBtn = null;
-        this._resetBtn = null;
-        this._btnGfxObjects = [];
+// Countdown
+let countdownActive = false;
 
-        // Drag state
-        this._dragging = false;
-        this._dragIdx = -1;
-        this._dragContainer = null;
-        this._dragGfx = null;
-        this._dragSourceCard = null;
-        this._dragSourceAlpha = 1;
-        this._previewAnchor = null;
-        this._previewValid = false;
+// Flash effects
+let flashCells = [];
 
-        // Game state
-        this.gridData = [];
-        this.gridSize = 5;
-        this.startPos = [0,0];
-        this.endPos = [0,0];
-        this.candidates = [];
-        this.placedHistory = [];
-        this.won = false;
-        this.failed = false;
-        this.timeLeft = TIMER_SECONDS;
-        this.timerEvent = null;
-        this.countdownText = null;
+// ---- Resize ----
+function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = Math.min(window.innerWidth, 500);
+    H = window.innerHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    calcLayout();
+}
+window.addEventListener('resize', resize);
 
-        // Persistent overlay graphics
-        this._overlayGfx = this.add.graphics().setDepth(50).setVisible(false);
+function calcLayout() {
+    if (!gridSize) return;
+    const maxW = Math.min(W - 20, 420);
+    const maxH = H * 0.36;
+    cellSize = Math.floor(Math.min(maxW / gridSize, maxH / gridSize));
+    const gridPx = cellSize * gridSize;
+    gridOffsetX = Math.floor((W - gridPx) / 2);
+    gridOffsetY = 68;
+}
 
-        // Global drag listener (single, won't accumulate)
-        this.input.on('pointermove', (pointer) => {
-            if (this._dragging && pointer.isDown) {
-                if (this._dragContainer) {
-                    this._dragContainer.x = pointer.x;
-                    this._dragContainer.y = pointer.y;
-                }
-                this._drawPreview(pointer.x, pointer.y);
+// ---- Particles ----
+function initParticles() {
+    particles = [];
+    for (let i = 0; i < 25; i++) {
+        particles.push({
+            x: Math.random() * W, y: Math.random() * H,
+            vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+            r: Math.random() * 2 + 0.5, a: Math.random() * 0.25 + 0.05,
+        });
+    }
+}
+function updateParticles() {
+    for (const p of particles) {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+    }
+}
+function drawParticles() {
+    for (const p of particles) {
+        ctx.globalAlpha = p.a;
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+}
+
+// ---- Draw ----
+function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawParticles();
+    drawTopBar();
+    drawGrid();
+    drawCandidates();
+    drawButtons();
+    drawHint();
+    drawFlash();
+    if (dragging) drawDragPiece();
+    drawPreview();
+}
+
+function drawTopBar() {
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    roundRect(ctx, 10, 6, W - 20, 54, 14);
+    ctx.fill();
+
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left';
+    ctx.fillText('🛤️  第 ' + (currentLevel + 1) + ' 关', 36, 34);
+
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#8a8a9a';
+    ctx.fillText(LEVEL_NAMES[currentLevel] || '末日筑路', 36, 52);
+
+    // Timer
+    const tc = timeLeft <= 5 ? '#ff4444' : '#ffd700';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillStyle = tc;
+    ctx.textAlign = 'right';
+    ctx.fillText('⏱ ' + timeLeft + 's', W - 20, 38);
+    ctx.textAlign = 'left';
+}
+
+function drawGrid() {
+    const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY, gs = gridSize;
+
+    // Background
+    ctx.fillStyle = '#0d0d1a';
+    roundRect(ctx, ox - 4, oy - 4, cs * gs + 8, cs * gs + 8, 12);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,215,0,0.15)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, ox - 4, oy - 4, cs * gs + 8, cs * gs + 8, 12);
+    ctx.stroke();
+
+    for (let r = 0; r < gs; r++) {
+        for (let c = 0; c < gs; c++) {
+            const x = ox + c * cs, y = oy + r * cs;
+            ctx.strokeStyle = 'rgba(26,26,46,0.5)';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(x, y, cs, cs);
+
+            if (gridData[r][c] === 2) {
+                ctx.fillStyle = 'rgba(42,21,32,0.7)';
+                ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+                ctx.strokeStyle = 'rgba(102,51,51,0.5)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(x + cs * 0.25, y + cs * 0.25);
+                ctx.lineTo(x + cs * 0.75, y + cs * 0.75);
+                ctx.moveTo(x + cs * 0.75, y + cs * 0.25);
+                ctx.lineTo(x + cs * 0.25, y + cs * 0.75);
+                ctx.stroke();
+            } else if (gridData[r][c] === 1) {
+                ctx.fillStyle = 'rgba(129,199,132,0.35)';
+                ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+                ctx.strokeStyle = 'rgba(129,199,132,0.2)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x + 1, y + 1, cs - 2, cs - 2);
             }
-        });
-        this.input.on('pointerup', (pointer) => {
-            if (this._dragging) this._endDrag(pointer);
-        });
-
-        // Resize
-        this.scale.on('resize', (gameSize) => {
-            this.w = gameSize.width;
-            this.h = gameSize.height;
-            this._fullRedraw();
-        });
-
-        this.loadLevel(0);
-    }
-
-    // ---- Cleanup helpers ----
-    _clearTexts() {
-        for (const t of this._textObjects) { if (t && t.active) t.destroy(); }
-        this._textObjects = [];
-    }
-    _clearBtns() {
-        if (this._undoBtn) { this._undoBtn.destroy(); this._undoBtn = null; }
-        if (this._resetBtn) { this._resetBtn.destroy(); this._resetBtn = null; }
-        for (const g of this._btnGfxObjects) { if (g && g.active) g.destroy(); }
-        this._btnGfxObjects = [];
-    }
-    _addText(x, y, text, style, origin) {
-        const t = this.add.text(x, y, text, style).setDepth(21);
-        if (origin) {
-            if (origin === 0.5) t.setOrigin(0.5);
-            else if (typeof origin === 'object') t.setOrigin(origin.x, origin.y);
         }
-        this._textObjects.push(t);
-        return t;
     }
 
-    // ---- Layout ----
-    _calcLayout() {
-        const maxGridW = Math.min(this.w - 20, 420);
-        const maxGridH = this.h * 0.38;
-        this.cellSize = Math.floor(Math.min(maxGridW / this.gridSize, maxGridH / this.gridSize));
-        const gridPx = this.cellSize * this.gridSize;
-        this.gridOffsetX = Math.floor((this.w - gridPx) / 2);
-        this.gridOffsetY = 68;
-    }
+    // Markers
+    drawMarker(startPos, '#4fc3f7', 'S');
+    drawMarker(endPos, '#ff6b6b', 'E');
+}
 
-    _fullRedraw() {
-        this._calcLayout();
-        this._drawTopBar();
-        this._drawGrid();
-        this._drawCandidates();
-        this._drawButtons();
-        this._updateHintText();
-    }
+function drawMarker(pos, color, label) {
+    const cs = cellSize, x = gridOffsetX + pos[1] * cs, y = gridOffsetY + pos[0] * cs;
+    ctx.fillStyle = color + '26';
+    ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+    ctx.strokeStyle = color + '66';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, cs - 2, cs - 2);
+    ctx.font = 'bold ' + Math.max(12, cs * 0.45) + 'px sans-serif';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x + cs / 2, y + cs / 2);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+}
 
-    // ---- Level management ----
-    loadLevel(idx) {
-        this.currentLevel = idx;
-        const lv = LEVELS[idx] || LEVELS[LEVELS.length - 1];
-        this.gridSize = lv.grid;
-        this.startPos = [...lv.start];
-        this.endPos = [...lv.end];
+function drawCandidates() {
+    const pcs = 26; // preview cell size
+    const totalCards = candidates.length;
+    const gap = 6;
 
-        this.won = false;
-        this.failed = false;
-        this.placedHistory = [];
-        if (this.timerEvent) { this.timerEvent.remove(); this.timerEvent = null; }
-
-        this.gridData = [];
-        for (let r = 0; r < this.gridSize; r++) {
-            this.gridData[r] = [];
-            for (let c = 0; c < this.gridSize; c++) this.gridData[r][c] = 0;
+    // Calculate card sizes
+    const cardSizes = candidates.map(cand => {
+        let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+        for (const [r, c] of cand.cells) {
+            minR = Math.min(minR, r); maxR = Math.max(maxR, r);
+            minC = Math.min(minC, c); maxC = Math.max(maxC, c);
         }
-        for (const [r,c] of lv.obstacles) this.gridData[r][c] = 2;
+        return { w: (maxC - minC + 1) * pcs + 14, h: (maxR - minR + 1) * pcs + 14, minR, maxR, minC, maxC };
+    });
 
-        this.candidates = lv.pieces.map((name) => ({
-            name, def: PIECE_DEFS[name], cells: PIECE_DEFS[name].cells.map(c=>[...c]), used: false
-        }));
+    const totalW = cardSizes.reduce((s, c) => s + c.w, 0) + (totalCards - 1) * gap;
+    const startX = Math.max(8, Math.floor((W - totalW) / 2));
+    const baseY = gridOffsetY + cellSize * gridSize + 16;
 
-        this._calcLayout();
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#8a8a9a';
+    ctx.textAlign = 'center';
+    ctx.fillText('拖动方块到棋盘上', W / 2, baseY);
+    ctx.textAlign = 'left';
 
-        // Clear everything
-        this._clearTexts();
-        this._clearBtns();
-        if (this._candContainer) { this._candContainer.destroy(); this._candContainer = null; }
-        if (this._gridGfx) { this._gridGfx.destroy(); this._gridGfx = null; }
-        if (this._topBarGfx) { this._topBarGfx.destroy(); this._topBarGfx = null; }
-        if (this.countdownText) { this.countdownText.destroy(); this.countdownText = null; }
+    let curX = startX;
+    // Store card rects for hit testing
+    window._cardRects = [];
 
-        this._drawTopBar();
-        this._drawGrid();
-        this._drawCandidates();
-        this._drawButtons();
-        this._updateHintText();
+    for (let i = 0; i < totalCards; i++) {
+        const cand = candidates[i];
+        const sz = cardSizes[i];
+        const cw = sz.w, ch = sz.h;
+        const cx = curX, cy = baseY + 8;
 
-        // 3-2-1 countdown then start timer
-        this._startCountdown();
+        // Card bg
+        ctx.fillStyle = cand.used ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)';
+        roundRect(ctx, cx, cy, cw, ch, 8);
+        ctx.fill();
+        ctx.strokeStyle = cand.used ? 'rgba(51,51,51,0.1)' : 'rgba(255,215,0,0.25)';
+        ctx.lineWidth = 2;
+        roundRect(ctx, cx, cy, cw, ch, 8);
+        ctx.stroke();
+
+        if (cand.used) ctx.globalAlpha = 0.2;
+
+        // Piece cells
+        for (const [r, c] of cand.cells) {
+            const px = cx + (c - sz.minC) * pcs + 7;
+            const py = cy + (r - sz.minR) * pcs + 7;
+            ctx.fillStyle = cand.def.color;
+            ctx.fillRect(px + 1, py + 1, pcs - 2, pcs - 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(px + 1, py + 1, pcs - 2, pcs - 2);
+        }
+
+        ctx.globalAlpha = 1;
+
+        // Store hit rect
+        if (!cand.used) {
+            window._cardRects.push({ x: cx - 6, y: cy - 6, w: cw + 12, h: ch + 12, idx: i });
+        }
+
+        curX += cw + gap;
     }
+}
 
-    _startCountdown() {
-        this.countdownText = this.add.text(this.w/2, this.h/2, '3', {
-            fontSize: '72px', fontStyle: 'bold', color: '#ffd700',
-            fontFamily: 'sans-serif', stroke: '#000', strokeThickness: 4
-        }).setOrigin(0.5).setDepth(300);
+function drawButtons() {
+    const btnY = gridOffsetY + cellSize * gridSize + 90;
+    const btnW = 100, btnH = 38, gap = 10;
+    const totalW = btnW * 2 + gap;
+    const startX = (W - totalW) / 2;
 
-        let count = 3;
-        const tick = () => {
+    window._btnRects = [];
+
+    // Undo
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    roundRect(ctx, startX, btnY, btnW, btnH, 10);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,215,0,0.2)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, startX, btnY, btnW, btnH, 10);
+    ctx.stroke();
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('↩️ 撤销', startX + btnW / 2, btnY + btnH / 2);
+    window._btnRects.push({ x: startX, y: btnY, w: btnW, h: btnH, action: 'undo' });
+
+    // Reset
+    const rx = startX + btnW + gap;
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    roundRect(ctx, rx, btnY, btnW, btnH, 10);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,215,0,0.2)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, rx, btnY, btnW, btnH, 10);
+    ctx.stroke();
+    ctx.fillText('🔃 重置', rx + btnW / 2, btnY + btnH / 2);
+    window._btnRects.push({ x: rx, y: btnY, w: btnW, h: btnH, action: 'reset' });
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+}
+
+function drawHint() {
+    ctx.font = '12px sans-serif';
+    ctx.fillStyle = '#8a8a9a';
+    ctx.textAlign = 'center';
+    ctx.fillText(hint, W / 2, H - 18);
+    ctx.textAlign = 'left';
+}
+
+function drawDragPiece() {
+    if (dragIdx < 0) return;
+    const cand = candidates[dragIdx];
+    const cs = cellSize;
+    let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+    for (const [r, c] of cand.cells) {
+        minR = Math.min(minR, r); maxR = Math.max(maxR, r);
+        minC = Math.min(minC, c); maxC = Math.max(maxC, c);
+    }
+    const offX = (maxC - minC + 1) * cs / 2;
+    const offY = (maxR - minR + 1) * cs / 2;
+
+    ctx.globalAlpha = 0.7;
+    for (const [r, c] of cand.cells) {
+        const x = lastPointerX + (c - minC) * cs - offX;
+        const y = lastPointerY + (r - minR) * cs - offY;
+        ctx.fillStyle = cand.def.color;
+        ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 1, y + 1, cs - 2, cs - 2);
+    }
+    ctx.globalAlpha = 1;
+}
+
+function drawPreview() {
+    if (!dragging || !previewAnchor) return;
+    const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY;
+    const [ar, ac] = previewAnchor;
+    const cand = candidates[dragIdx];
+
+    for (const [r, c] of cand.cells) {
+        const gr = ar + r, gc = ac + c;
+        if (gr < 0 || gr >= gridSize || gc < 0 || gc >= gridSize) continue;
+        ctx.fillStyle = previewValid ? 'rgba(255,215,0,0.35)' : 'rgba(255,51,51,0.35)';
+        ctx.fillRect(ox + gc * cs + 2, oy + gr * cs + 2, cs - 4, cs - 4);
+    }
+}
+
+function drawFlash() {
+    const now = Date.now();
+    flashCells = flashCells.filter(f => now - f.t < 300);
+    const alpha = 0.5 * (1 - flashCells.length > 0 ? 0 : 0);
+    for (const f of flashCells) {
+        const elapsed = now - f.t;
+        const a = 0.5 * (1 - elapsed / 300);
+        ctx.fillStyle = `rgba(255,255,255,${a})`;
+        ctx.fillRect(gridOffsetX + f.c * cellSize + 1, gridOffsetY + f.r * cellSize + 1, cellSize - 2, cellSize - 2);
+    }
+}
+
+// ---- Game Logic ----
+function loadLevel(idx) {
+    currentLevel = idx;
+    const lv = LEVELS[idx] || LEVELS[LEVELS.length - 1];
+    gridSize = lv.grid;
+    startPos = [...lv.start];
+    endPos = [...lv.end];
+    won = false;
+    failed = false;
+    placedHistory = [];
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+
+    gridData = [];
+    for (let r = 0; r < gridSize; r++) {
+        gridData[r] = [];
+        for (let c = 0; c < gridSize; c++) gridData[r][c] = 0;
+    }
+    for (const [r, c] of lv.obstacles) gridData[r][c] = 2;
+
+    candidates = lv.pieces.map(name => ({
+        name, def: PIECE_DEFS[name], cells: PIECE_DEFS[name].cells.map(c => [...c]), used: false
+    }));
+
+    hint = '拖动方块到棋盘上';
+    timeLeft = TIMER_SECONDS;
+    flashCells = [];
+    dragging = false;
+    dragIdx = -1;
+    countdownActive = false;
+
+    calcLayout();
+    draw();
+    startCountdown();
+}
+
+function startCountdown() {
+    countdownActive = true;
+    let count = 3;
+    function tick() {
+        if (count > 0) {
+            draw();
+            // Draw countdown overlay
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, 0, W, H);
+            ctx.font = 'bold 72px sans-serif';
+            ctx.fillStyle = '#ffd700';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(count), W / 2, H / 2);
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'alphabetic';
             count--;
-            if (count > 0) {
-                this.countdownText.setText(String(count));
-                this.tweens.add({ targets: this.countdownText, scaleX: 1.5, scaleY: 1.5, alpha: 0.5, duration: 300, yoyo: true, onComplete: tick });
-            } else {
-                this.countdownText.setText('GO!');
-                this.tweens.add({
-                    targets: this.countdownText, scaleX: 2, scaleY: 2, alpha: 0, duration: 500,
-                    onComplete: () => { if (this.countdownText) { this.countdownText.destroy(); this.countdownText = null; } }
-                });
-                this._startTimer();
-            }
-        };
-        this.tweens.add({ targets: this.countdownText, scaleX: 1.5, scaleY: 1.5, alpha: 0.5, duration: 300, yoyo: true, onComplete: tick });
-    }
-
-    // ---- Timer ----
-    _startTimer() {
-        this.timeLeft = TIMER_SECONDS;
-        this._updateTimerUI();
-        this.timerEvent = this.time.addEvent({
-            delay: 1000, repeat: TIMER_SECONDS,
-            callback: () => {
-                if (this.won || this.failed) { this.timerEvent.remove(); return; }
-                this.timeLeft--;
-                this._updateTimerUI();
-                if (this.timeLeft <= 0) {
-                    this.failed = true;
-                    this.timerEvent.remove();
-                    this.time.delayedCall(300, () => this._showFail());
-                }
-            }
-        });
-    }
-
-    _updateTimerUI() {
-        const objs = this._textObjects;
-        const timer = objs.find(o => o.getData('role') === 'timer');
-        if (!timer) return;
-        const color = this.timeLeft <= 5 ? '#ff4444' : '#ffd700';
-        timer.setText(`⏱ ${this.timeLeft}s`);
-        timer.setColor(color);
-        if (this.timeLeft <= 5) {
-            timer.setScale(1.1 + Math.sin(this.time.now / 150) * 0.1);
+            setTimeout(tick, 600);
         } else {
-            timer.setScale(1);
+            draw();
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fillRect(0, 0, W, H);
+            ctx.font = 'bold 72px sans-serif';
+            ctx.fillStyle = '#ffd700';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('GO!', W / 2, H / 2);
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'alphabetic';
+            countdownActive = false;
+            setTimeout(() => {
+                startTimer();
+                draw();
+            }, 400);
         }
     }
+    tick();
+}
 
-    _updateHintText() {
-        const objs = this._textObjects;
-        const hint = objs.find(o => o.getData('role') === 'hint');
-        if (hint) {
-            hint.setPosition(this.w / 2, this.h - 18);
+function startTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    timeLeft = TIMER_SECONDS;
+    timerInterval = setInterval(() => {
+        if (won || failed || countdownActive) return;
+        timeLeft--;
+        draw();
+        if (timeLeft <= 0) {
+            failed = true;
+            clearInterval(timerInterval);
+            timerInterval = null;
+            setTimeout(showFail, 300);
         }
+    }, 1000);
+}
+
+function placePiece(idx, anchorR, anchorC) {
+    const cand = candidates[idx];
+    const absCells = cand.cells.map(([r, c]) => [anchorR + r, anchorC + c]);
+    for (const [r, c] of absCells) {
+        if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return false;
+        if (gridData[r][c] === 2 || gridData[r][c] === 1) return false;
     }
+    for (const [r, c] of absCells) gridData[r][c] = 1;
+    placedHistory.push({ idx, anchorR, anchorC, cells: absCells });
+    cand.used = true;
 
-    // ---- Draw top bar ----
-    _drawTopBar() {
-        if (this._topBarGfx) this._topBarGfx.destroy();
-        this._topBarGfx = this.add.graphics().setDepth(20);
-        this._topBarGfx.fillStyle(0xffffff, 0.03);
-        this._topBarGfx.fillRoundedRect(10, 6, this.w - 20, 54, 14);
+    // Flash
+    const now = Date.now();
+    for (const [r, c] of absCells) flashCells.push({ r, c, t: now });
 
-        // Remove old top bar texts
-        this._textObjects = this._textObjects.filter(t => {
-            const role = t.getData('role');
-            if (role === 'topbar') { t.destroy(); return false; }
-            return true;
-        });
+    hint = '✅ 方块已放置';
+    draw();
 
-        const t1 = this._addText(48, 16, `第 ${this.currentLevel + 1} 关`, { fontSize: '15px', fontStyle: 'bold', color: '#ffffff' });
-        t1.setData('role', 'topbar');
-        const t2 = this._addText(48, 36, LEVEL_NAMES[this.currentLevel] || '末日筑路', { fontSize: '11px', color: '#8a8a9a' });
-        t2.setData('role', 'topbar');
-        const t3 = this._addText(26, 24, '🛤️', { fontSize: '20px' });
-        t3.setData('role', 'topbar');
-
-        const timer = this._addText(this.w - 30, 28, `⏱ ${TIMER_SECONDS}s`, { fontSize: '15px', fontStyle: 'bold', color: '#ffd700' });
-        timer.setOrigin(1, 0.5);
-        timer.setData('role', 'timer');
-
-        const hint = this._addText(this.w / 2, this.h - 18, '拖动方块到棋盘上', { fontSize: '12px', color: '#8a8a9a' });
-        hint.setOrigin(0.5);
-        hint.setData('role', 'hint');
+    if (checkWin()) {
+        won = true;
+        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+        setTimeout(showWin, 500);
     }
+    return true;
+}
 
-    // ---- Draw grid ----
-    _drawGrid() {
-        if (this._gridGfx) this._gridGfx.destroy();
-        this._gridGfx = this.add.graphics().setDepth(1);
+function undo() {
+    if (placedHistory.length === 0 || won || failed) return;
+    const last = placedHistory.pop();
+    for (const [r, c] of last.cells) gridData[r][c] = 0;
+    candidates[last.idx].used = false;
+    hint = '↩️ 已撤销';
+    draw();
+}
 
-        // Remove old marker texts
-        this._textObjects = this._textObjects.filter(t => {
-            const role = t.getData('role');
-            if (role === 'marker') { t.destroy(); return false; }
-            return true;
-        });
-
-        const g = this._gridGfx;
-        const cs = this.cellSize;
-        const ox = this.gridOffsetX;
-        const oy = this.gridOffsetY;
-        const gs = this.gridSize;
-
-        // Background
-        g.fillStyle(0x0d0d1a, 1);
-        g.fillRoundedRect(ox - 4, oy - 4, cs * gs + 8, cs * gs + 8, 12);
-        g.lineStyle(1, 0xffd700, 0.15);
-        g.strokeRoundedRect(ox - 4, oy - 4, cs * gs + 8, cs * gs + 8, 12);
-
-        for (let r = 0; r < gs; r++) {
-            for (let c = 0; c < gs; c++) {
-                const x = ox + c * cs, y = oy + r * cs;
-                g.lineStyle(0.5, 0x1a1a2e, 0.5);
-                g.strokeRect(x, y, cs, cs);
-
-                if (this.gridData[r][c] === 2) {
-                    g.fillStyle(0x2a1520, 0.7);
-                    g.fillRect(x + 1, y + 1, cs - 2, cs - 2);
-                    g.lineStyle(2, 0x663333, 0.5);
-                    g.beginPath(); g.moveTo(x+cs*0.25, y+cs*0.25); g.lineTo(x+cs*0.75, y+cs*0.75);
-                    g.moveTo(x+cs*0.75, y+cs*0.25); g.lineTo(x+cs*0.25, y+cs*0.75); g.strokePath();
-                } else if (this.gridData[r][c] === 1) {
-                    g.fillStyle(0x81c784, 0.35);
-                    g.fillRect(x + 1, y + 1, cs - 2, cs - 2);
-                    g.lineStyle(1, 0x81c784, 0.2);
-                    g.strokeRect(x + 1, y + 1, cs - 2, cs - 2);
-                }
+function checkWin() {
+    const gs = gridSize;
+    const visited = Array.from({ length: gs }, () => Array(gs).fill(false));
+    const queue = [startPos];
+    visited[startPos[0]][startPos[1]] = true;
+    const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+    while (queue.length) {
+        const [r, c] = queue.shift();
+        if (r === endPos[0] && c === endPos[1]) return true;
+        for (const [dr, dc] of dirs) {
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < gs && nc >= 0 && nc < gs && !visited[nr][nc] && gridData[nr][nc] === 1) {
+                visited[nr][nc] = true;
+                queue.push([nr, nc]);
             }
         }
-
-        // S/E markers
-        this._drawMarker(this.startPos, 0x4fc3f7, 'S');
-        this._drawMarker(this.endPos, 0xff6b6b, 'E');
     }
+    return false;
+}
 
-    _drawMarker(pos, color, label) {
-        const cs = this.cellSize;
-        const x = this.gridOffsetX + pos[1] * cs;
-        const y = this.gridOffsetY + pos[0] * cs;
-        const g = this._gridGfx;
-
-        g.fillStyle(color, 0.15);
-        g.fillRect(x + 1, y + 1, cs - 2, cs - 2);
-        g.lineStyle(2, color, 0.4);
-        g.strokeRect(x + 1, y + 1, cs - 2, cs - 2);
-
-        const colorStr = '#' + color.toString(16).padStart(6, '0');
-        const t = this._addText(x + cs / 2, y + cs / 2, label, {
-            fontSize: Math.max(12, cs * 0.45) + 'px',
-            fontStyle: 'bold', color: colorStr
-        });
-        t.setOrigin(0.5).setDepth(2);
-        t.setData('role', 'marker');
-    }
-
-    // ---- Draw candidates ----
-    _drawCandidates() {
-        if (this._candContainer) { this._candContainer.destroy(); this._candContainer = null; }
-        this._candContainer = this.add.container(0, 0).setDepth(10);
-
-        const cs = 26; // fixed preview size, big enough for touch
-        const totalCards = this.candidates.length;
-        const gap = 6;
-        // Calculate card sizes
-        const cardSizes = this.candidates.map(cand => {
-            let minR=Infinity,maxR=-Infinity,minC=Infinity,maxC=-Infinity;
-            for (const [r,c] of cand.cells) { minR=Math.min(minR,r);maxR=Math.max(maxR,r);minC=Math.min(minC,c);maxC=Math.max(maxC,c); }
-            return { w: (maxC-minC+1)*cs + 14, h: (maxR-minR+1)*cs + 14, minR, maxR, minC, maxC };
-        });
-        const totalW = cardSizes.reduce((s, c) => s + c.w, 0) + (totalCards - 1) * gap;
-        const startX = Math.max(8, Math.floor((this.w - totalW) / 2));
-        const baseY = this.gridOffsetY + this.cellSize * this.gridSize + 14;
-
-        // Label
-        const label = this._addText(this.w / 2, baseY - 2, '拖动方块到棋盘上', { fontSize: '11px', color: '#8a8a9a' });
-        label.setOrigin(0.5, 1);
-        label.setData('role', 'candlabel');
-
-        let curX = startX;
-        this.candidates.forEach((cand, idx) => {
-            const sz = cardSizes[idx];
-            const cardW = sz.w, cardH = sz.h;
-            const cardCx = curX + cardW / 2;
-            const cardCy = baseY + 10 + cardH / 2;
-
-            const cardBg = this.add.graphics().setDepth(10);
-            cardBg.fillStyle(0xffffff, cand.used ? 0.02 : 0.05);
-            cardBg.lineStyle(2, cand.used ? 0x333333 : 0xffd700, cand.used ? 0.1 : 0.25);
-            cardBg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 8);
-            cardBg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 8);
-
-            const pieceGfx = this.add.graphics().setDepth(11);
-            for (const [r, c] of cand.cells) {
-                const px = (c - sz.minC) * cs + 7 - cardW / 2;
-                const py = (r - sz.minR) * cs + 7 - cardH / 2;
-                pieceGfx.fillStyle(cand.def.color, cand.used ? 0.15 : 0.85);
-                pieceGfx.fillRect(px + 1, py + 1, cs - 2, cs - 2);
-                pieceGfx.lineStyle(1, 0xffffff, 0.25);
-                pieceGfx.strokeRect(px + 1, py + 1, cs - 2, cs - 2);
-            }
-
-            const card = this.add.container(cardCx, cardCy, [cardBg, pieceGfx]).setDepth(10);
-            if (cand.used) card.setAlpha(0.2);
-
-            const hitArea = this.add.rectangle(0, 0, cardW + 12, cardH + 12, 0x000000, 0)
-                .setInteractive({ useHandCursor: true }).setDepth(12);
-            card.add(hitArea);
-
-            if (!cand.used) {
-                hitArea.on('pointerdown', (pointer) => this._startDrag(pointer, idx, card));
-            }
-
-            this._candContainer.add(card);
-            curX += cardW + gap;
-        });
-    }
-
-    // ---- Drag ----
-    _startDrag(pointer, idx, sourceCard) {
-        if (this._dragging || this.won || this.failed) return;
-        this._dragging = true;
-        this._dragIdx = idx;
-
-        const cs = this.cellSize;
-        const cells = this.candidates[idx].cells;
-        this._dragSourceCard = sourceCard;
-        this._dragSourceAlpha = sourceCard.alpha;
-        sourceCard.setAlpha(0.3);
-
-        this._dragGfx = this.add.graphics().setDepth(100);
-        this._dragContainer = this.add.container(pointer.x, pointer.y, [this._dragGfx]).setDepth(100);
-        this._drawDragPiece(pointer.x, pointer.y);
-    }
-
-    _drawDragPiece(px, py) {
-        if (!this._dragGfx) return;
-        this._dragGfx.clear();
-        const cs = this.cellSize;
-        const cells = this.candidates[this._dragIdx].cells;
-        let minR=Infinity,maxR=-Infinity,minC=Infinity,maxC=-Infinity;
-        for (const [r,c] of cells) { minR=Math.min(minR,r);maxR=Math.max(maxR,r);minC=Math.min(minC,c);maxC=Math.max(maxC,c); }
-        const offX = (maxC-minC+1)*cs/2, offY = (maxR-minR+1)*cs/2;
-        const color = this.candidates[this._dragIdx].def.color;
-
-        for (const [r,c] of cells) {
-            const x = (c-minC)*cs - offX, y = (r-minR)*cs - offY;
-            this._dragGfx.fillStyle(color, 0.7);
-            this._dragGfx.fillRect(x+1, y+1, cs-2, cs-2);
-            this._dragGfx.lineStyle(2, 0xffffff, 0.5);
-            this._dragGfx.strokeRect(x+1, y+1, cs-2, cs-2);
+function findPath() {
+    const gs = gridSize;
+    const visited = Array.from({ length: gs }, () => Array(gs).fill(false));
+    const parent = Array.from({ length: gs }, () => Array(gs).fill(null));
+    const queue = [startPos];
+    visited[startPos[0]][startPos[1]] = true;
+    const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+    while (queue.length) {
+        const [r, c] = queue.shift();
+        if (r === endPos[0] && c === endPos[1]) {
+            const path = new Set();
+            let cur = [r, c];
+            while (cur) { path.add(cur[0] * gs + cur[1]); cur = parent[cur[0]][cur[1]]; }
+            return path;
         }
-    }
-
-    _drawPreview(px, py) {
-        const ov = this._overlayGfx;
-        ov.clear().setVisible(true);
-        if (!this._dragging || this._dragIdx < 0) return;
-
-        const cs = this.cellSize;
-        const ox = this.gridOffsetX, oy = this.gridOffsetY;
-        const gs = this.gridSize;
-        const cells = this.candidates[this._dragIdx].cells;
-
-        const gc = Math.floor((px - ox) / cs);
-        const gr = Math.floor((py - oy) / cs);
-        let minR=Infinity,maxR=-Infinity,minC=Infinity,maxC=-Infinity;
-        for (const [r,c] of cells) { minR=Math.min(minR,r);maxR=Math.max(maxR,r);minC=Math.min(minC,c);maxC=Math.max(maxC,c); }
-        const anchorR = Math.round(gr - (minR+maxR)/2);
-        const anchorC = Math.round(gc - (minC+maxC)/2);
-
-        let valid = true;
-        const absCells = [];
-        for (const [r,c] of cells) {
-            const ar = anchorR+r, ac = anchorC+c;
-            absCells.push([ar,ac]);
-            if (ar<0||ar>=gs||ac<0||ac>=gs) valid = false;
-            else if (this.gridData[ar][ac]===2||this.gridData[ar][ac]===1) valid = false;
-        }
-        for (const [r,c] of absCells) {
-            if (r<0||r>=gs||c<0||c>=gs) continue;
-            ov.fillStyle(valid ? 0xffd700 : 0xff3333, 0.35);
-            ov.fillRect(ox+c*cs+2, oy+r*cs+2, cs-4, cs-4);
-        }
-        this._previewAnchor = [anchorR, anchorC];
-        this._previewValid = valid;
-    }
-
-    _endDrag(pointer) {
-        if (!this._dragging) return;
-        this._dragging = false;
-
-        if (this._dragSourceCard) this._dragSourceCard.setAlpha(this._dragSourceAlpha);
-        if (this._dragContainer) { this._dragContainer.destroy(); this._dragContainer = null; }
-        this._overlayGfx.clear().setVisible(false);
-
-        const px = pointer.x, py = pointer.y;
-        const ox = this.gridOffsetX, oy = this.gridOffsetY;
-        const cs = this.cellSize, gs = this.gridSize;
-
-        if (px >= ox && px < ox+cs*gs && py >= oy && py < oy+cs*gs && this._previewValid) {
-            this._placePiece(this._dragIdx, this._previewAnchor[0], this._previewAnchor[1]);
-        } else if (px < ox || px >= ox+cs*gs || py < oy || py >= oy+cs*gs) {
-            this._setHint('放到了棋盘外面哦');
-        } else if (!this._previewValid) {
-            this._setHint('❌ 无法放在这里');
-        }
-
-        this._dragIdx = -1;
-        this._previewAnchor = null;
-        this._previewValid = false;
-    }
-
-    // ---- Place ----
-    _placePiece(idx, anchorR, anchorC) {
-        const cand = this.candidates[idx];
-        const absCells = cand.cells.map(([r,c]) => [anchorR+r, anchorC+c]);
-        const gs = this.gridSize;
-
-        for (const [r,c] of absCells) {
-            if (r<0||r>=gs||c<0||c>=gs) return;
-            if (this.gridData[r][c]===2||this.gridData[r][c]===1) return;
-        }
-
-        for (const [r,c] of absCells) this.gridData[r][c] = 1;
-        this.placedHistory.push({ idx, anchorR, anchorC, cells: absCells });
-        cand.used = true;
-
-        this._drawGrid();
-        this._drawCandidates();
-        this._drawButtons();
-        this._setHint('✅ 方块已放置');
-
-        // Flash feedback
-        const cs = this.cellSize;
-        const ox = this.gridOffsetX, oy = this.gridOffsetY;
-        for (const [r,c] of absCells) {
-            const flash = this.add.rectangle(ox+c*cs+cs/2, oy+r*cs+cs/2, cs-2, cs-2, 0xffffff, 0.5).setDepth(5);
-            this.tweens.add({ targets: flash, alpha: 0, duration: 300, onComplete: () => flash.destroy() });
-        }
-
-        if (this._checkWin()) {
-            this.won = true;
-            if (this.timerEvent) { this.timerEvent.remove(); this.timerEvent = null; }
-            this.time.delayedCall(500, () => this._showWin());
-        }
-    }
-
-    undo() {
-        if (this.placedHistory.length === 0 || this.won || this.failed) return;
-        const last = this.placedHistory.pop();
-        for (const [r,c] of last.cells) this.gridData[r][c] = 0;
-        this.candidates[last.idx].used = false;
-        this._drawGrid(); this._drawCandidates(); this._drawButtons();
-        this._setHint('↩️ 已撤销');
-    }
-
-    // ---- BFS ----
-    _checkWin() {
-        const gs = this.gridSize;
-        const visited = Array.from({length:gs}, ()=>Array(gs).fill(false));
-        const queue = [this.startPos];
-        visited[this.startPos[0]][this.startPos[1]] = true;
-        const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
-        while (queue.length) {
-            const [r,c] = queue.shift();
-            if (r===this.endPos[0]&&c===this.endPos[1]) return true;
-            for (const [dr,dc] of dirs) {
-                const nr=r+dr,nc=c+dc;
-                if (nr>=0&&nr<gs&&nc>=0&&nc<gs&&!visited[nr][nc]&&this.gridData[nr][nc]===1) {
-                    visited[nr][nc]=true; queue.push([nr,nc]);
-                }
+        for (const [dr, dc] of dirs) {
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < gs && nc >= 0 && nc < gs && !visited[nr][nc] && gridData[nr][nc] === 1) {
+                visited[nr][nc] = true;
+                parent[nr][nc] = [r, c];
+                queue.push([nr, nc]);
             }
         }
-        return false;
+    }
+    return new Set();
+}
+
+// ---- Modals ----
+function showModal(content, className) {
+    // Remove existing
+    document.querySelectorAll('.modal-overlay').forEach(e => e.remove());
+    const div = document.createElement('div');
+    div.className = 'modal-overlay';
+    div.innerHTML = `<div class="modal-box ${className || ''}">${content}</div>`;
+    document.body.appendChild(div);
+    return div;
+}
+
+function showWin() {
+    const pathSet = findPath();
+    // Draw glow path
+    draw();
+    const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY;
+    for (const key of pathSet) {
+        const r = Math.floor(key / gridSize), c = key % gridSize;
+        ctx.fillStyle = 'rgba(129,199,132,0.4)';
+        ctx.fillRect(ox + c * cs + 2, oy + r * cs + 2, cs - 4, cs - 4);
     }
 
-    _findPath() {
-        const gs = this.gridSize;
-        const visited = Array.from({length:gs}, ()=>Array(gs).fill(false));
-        const parent = Array.from({length:gs}, ()=>Array(gs).fill(null));
-        const queue = [this.startPos];
-        visited[this.startPos[0]][this.startPos[1]] = true;
-        const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
-        while (queue.length) {
-            const [r,c] = queue.shift();
-            if (r===this.endPos[0]&&c===this.endPos[1]) {
-                const path = new Set();
-                let cur = [r,c];
-                while (cur) { path.add(cur[0]*gs+cur[1]); cur = parent[cur[0]][cur[1]]; }
-                return path;
-            }
-            for (const [dr,dc] of dirs) {
-                const nr=r+dr,nc=c+dc;
-                if (nr>=0&&nr<gs&&nc>=0&&nc<gs&&!visited[nr][nc]&&this.gridData[nr][nc]===1) {
-                    visited[nr][nc]=true; parent[nr][nc]=[r,c]; queue.push([nr,nc]);
-                }
-            }
-        }
-        return new Set();
+    const used = placedHistory.length;
+    const div = showModal(`
+        <h2>🎉 通路达成!</h2>
+        <p>用了 ${used} 块完成筑路</p>
+        <button class="btn-next" id="btnNext">下一关 →</button>
+    `);
+    document.getElementById('btnNext').onclick = () => {
+        div.remove();
+        loadLevel(Math.min(currentLevel + 1, LEVELS.length - 1));
+    };
+}
+
+function showFail() {
+    hint = '⏰ 时间到!';
+    draw();
+    const div = showModal(`
+        <h2>⏰ 时间到!</h2>
+        <p>第 ${currentLevel + 1} 关失败，再试试吧</p>
+        <button class="btn-retry" id="btnRetry">🔄 再试一次</button>
+    `, 'fail');
+    document.getElementById('btnRetry').onclick = () => {
+        div.remove();
+        loadLevel(currentLevel);
+    };
+}
+
+// ---- Input ----
+function getXY(e) {
+    const rect = canvas.getBoundingClientRect();
+    if (e.touches) {
+        return [e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top];
+    }
+    return [e.clientX - rect.left, e.clientY - rect.top];
+}
+
+function hitTest(x, y, rects) {
+    for (const r of rects) {
+        if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return r;
+    }
+    return null;
+}
+
+function onPointerDown(e) {
+    if (won || failed || countdownActive) return;
+    e.preventDefault();
+    const [x, y] = getXY(e);
+    lastPointerX = x;
+    lastPointerY = y;
+
+    // Check buttons
+    const btn = hitTest(x, y, window._btnRects || []);
+    if (btn) {
+        if (btn.action === 'undo') undo();
+        else if (btn.action === 'reset') loadLevel(currentLevel);
+        return;
     }
 
-    _setHint(text) {
-        const hint = this._textObjects.find(o => o.getData('role') === 'hint');
-        if (hint) hint.setText(text);
-    }
-
-    // ---- Buttons ----
-    _drawButtons() {
-        this._clearBtns();
-        const btnY = this.gridOffsetY + this.cellSize * this.gridSize + 90;
-        const btnW = 100, btnH = 38, gap = 10;
-        const totalW = btnW * 2 + gap;
-        const startX = (this.w - totalW) / 2;
-
-        // Undo
-        const ubg = this.add.graphics().setDepth(20);
-        ubg.fillStyle(0xffffff, 0.05);
-        ubg.lineStyle(1, 0xffd700, 0.2);
-        ubg.fillRoundedRect(startX, btnY, btnW, btnH, 10);
-        ubg.strokeRoundedRect(startX, btnY, btnW, btnH, 10);
-        this._btnGfxObjects.push(ubg);
-
-        const utxt = this.add.text(startX+btnW/2, btnY+btnH/2, '↩️ 撤销', { fontSize: '13px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5).setDepth(21);
-        this._btnGfxObjects.push(utxt);
-
-        this._undoBtn = this.add.container(startX, btnY, []).setDepth(20).setSize(btnW, btnH);
-        this._undoBtn.setPosition(startX, btnY);
-        this._undoBtn.setInteractive({ useHandCursor: true });
-        this._undoBtn.on('pointerdown', () => this.undo());
-
-        // Reset
-        const rx = startX + btnW + gap;
-        const rbg = this.add.graphics().setDepth(20);
-        rbg.fillStyle(0xffffff, 0.05);
-        rbg.lineStyle(1, 0xffd700, 0.2);
-        rbg.fillRoundedRect(rx, btnY, btnW, btnH, 10);
-        rbg.strokeRoundedRect(rx, btnY, btnW, btnH, 10);
-        this._btnGfxObjects.push(rbg);
-
-        const rtxt = this.add.text(rx+btnW/2, btnY+btnH/2, '🔃 重置', { fontSize: '13px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5).setDepth(21);
-        this._btnGfxObjects.push(rtxt);
-
-        this._resetBtn = this.add.container(rx, btnY, []).setDepth(20).setSize(btnW, btnH);
-        this._resetBtn.setPosition(rx, btnY);
-        this._resetBtn.setInteractive({ useHandCursor: true });
-        this._resetBtn.on('pointerdown', () => this.loadLevel(this.currentLevel));
-    }
-
-    // ---- Win / Fail ----
-    _showWin() {
-        const used = this.placedHistory.length;
-        const pathSet = this._findPath();
-        const cs = this.cellSize, ox = this.gridOffsetX, oy = this.gridOffsetY;
-
-        for (const key of pathSet) {
-            const r = Math.floor(key / this.gridSize), c = key % this.gridSize;
-            const rect = this.add.rectangle(ox+c*cs+cs/2, oy+r*cs+cs/2, cs-4, cs-4, 0x81c784, 0.3).setDepth(3);
-            this.tweens.add({ targets: rect, alpha: 0.6, duration: 500, yoyo: true, repeat: -1 });
-        }
-
-        const modalObjs = [];
-        modalObjs.push(this.add.rectangle(this.w/2, this.h/2, this.w, this.h, 0x000000, 0.7).setDepth(200));
-        const box = this.add.graphics().setDepth(201);
-        const bw=300, bh=180, bx=this.w/2-bw/2, by=this.h/2-bh/2;
-        box.fillStyle(0x1a1a2e, 1);
-        box.fillRoundedRect(bx, by, bw, bh, 20);
-        box.lineStyle(1, 0xffd700, 0.3);
-        box.strokeRoundedRect(bx, by, bw, bh, 20);
-        modalObjs.push(box);
-        modalObjs.push(this.add.text(this.w/2, this.h/2-40, '🎉 通路达成!', { fontSize: '22px', fontStyle: 'bold', color: '#ffd700' }).setOrigin(0.5).setDepth(202));
-        modalObjs.push(this.add.text(this.w/2, this.h/2, `用了 ${used} 块完成筑路`, { fontSize: '14px', color: '#8a8a9a' }).setOrigin(0.5).setDepth(202));
-
-        const nextBtn = this.add.text(this.w/2, this.h/2+50, '下一关 →', {
-            fontSize: '15px', fontStyle: 'bold', color: '#000',
-            backgroundColor: '#ffd700', padding: { x: 24, y: 10 }
-        }).setOrigin(0.5).setDepth(202).setInteractive({ useHandCursor: true });
-        modalObjs.push(nextBtn);
-
-        nextBtn.on('pointerdown', () => {
-            for (const o of modalObjs) o.destroy();
-            this.loadLevel(Math.min(this.currentLevel + 1, LEVELS.length - 1));
-        });
-    }
-
-    _showFail() {
-        this._setHint('⏰ 时间到!');
-
-        const modalObjs = [];
-        modalObjs.push(this.add.rectangle(this.w/2, this.h/2, this.w, this.h, 0x000000, 0.7).setDepth(200));
-        const box = this.add.graphics().setDepth(201);
-        const bw=300, bh=180, bx=this.w/2-bw/2, by=this.h/2-bh/2;
-        box.fillStyle(0x1a1a2e, 1);
-        box.fillRoundedRect(bx, by, bw, bh, 20);
-        box.lineStyle(1, 0xff4444, 0.3);
-        box.strokeRoundedRect(bx, by, bw, bh, 20);
-        modalObjs.push(box);
-        modalObjs.push(this.add.text(this.w/2, this.h/2-40, '⏰ 时间到!', { fontSize: '22px', fontStyle: 'bold', color: '#ff6b6b' }).setOrigin(0.5).setDepth(202));
-        modalObjs.push(this.add.text(this.w/2, this.h/2, `第 ${this.currentLevel+1} 关失败`, { fontSize: '14px', color: '#8a8a9a' }).setOrigin(0.5).setDepth(202));
-
-        const retryBtn = this.add.text(this.w/2, this.h/2+50, '🔄 再试一次', {
-            fontSize: '15px', fontStyle: 'bold', color: '#fff',
-            backgroundColor: '#ff4444', padding: { x: 24, y: 10 }
-        }).setOrigin(0.5).setDepth(202).setInteractive({ useHandCursor: true });
-        modalObjs.push(retryBtn);
-
-        retryBtn.on('pointerdown', () => {
-            for (const o of modalObjs) o.destroy();
-            this.loadLevel(this.currentLevel);
-        });
+    // Check candidate cards
+    const card = hitTest(x, y, window._cardRects || []);
+    if (card) {
+        dragging = true;
+        dragIdx = card.idx;
+        draw();
     }
 }
 
-class BgScene extends Phaser.Scene {
-    constructor() { super('BgScene'); }
-    create() {
-        this.graphics = this.add.graphics();
-        this.dots = [];
-        for (let i = 0; i < 25; i++) {
-            this.dots.push({
-                x: Math.random()*this.cameras.main.width, y: Math.random()*this.cameras.main.height,
-                vx: (Math.random()-0.5)*0.3, vy: (Math.random()-0.5)*0.3,
-                r: Math.random()*2+0.5, a: Math.random()*0.25+0.05,
-            });
-        }
+function onPointerMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    const [x, y] = getXY(e);
+    lastPointerX = x;
+    lastPointerY = y;
+
+    // Calculate preview
+    const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY;
+    const cand = candidates[dragIdx];
+    let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+    for (const [r, c] of cand.cells) {
+        minR = Math.min(minR, r); maxR = Math.max(maxR, r);
+        minC = Math.min(minC, c); maxC = Math.max(maxC, c);
     }
-    update() {
-        const g = this.graphics; g.clear();
-        const w = this.cameras.main.width, h = this.cameras.main.height;
-        for (const p of this.dots) {
-            p.x += p.vx; p.y += p.vy;
-            if (p.x<0) p.x=w; if (p.x>w) p.x=0;
-            if (p.y<0) p.y=h; if (p.y>h) p.y=0;
-            g.fillStyle(0xffd700, p.a);
-            g.fillCircle(p.x, p.y, p.r);
-        }
+    const gc = Math.floor((x - ox) / cs);
+    const gr = Math.floor((y - oy) / cs);
+    const anchorR = Math.round(gr - (minR + maxR) / 2);
+    const anchorC = Math.round(gc - (minC + maxC) / 2);
+
+    let valid = true;
+    for (const [r, c] of cand.cells) {
+        const ar = anchorR + r, ac = anchorC + c;
+        if (ar < 0 || ar >= gridSize || ac < 0 || ac >= gridSize) valid = false;
+        else if (gridData[ar][ac] === 2 || gridData[ar][ac] === 1) valid = false;
     }
+    previewAnchor = [anchorR, anchorC];
+    previewValid = valid;
+    draw();
 }
 
-new Phaser.Game({
-    type: Phaser.AUTO,
-    parent: 'gameContainer',
-    width: Math.min(window.innerWidth, 500),
-    height: window.innerHeight,
-    backgroundColor: '#0a0a12',
-    scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
-    scene: [BgScene, GameScene],
-    input: { touch: { capture: true } },
-});
+function onPointerUp(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    const [x, y] = lastPointerX !== undefined ? [lastPointerX, lastPointerY] : getXY(e);
+    dragging = false;
+
+    const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY, gs = gridSize;
+
+    if (x >= ox && x < ox + cs * gs && y >= oy && y < oy + cs * gs && previewValid) {
+        placePiece(dragIdx, previewAnchor[0], previewAnchor[1]);
+    } else if (x < ox || x >= ox + cs * gs || y < oy || y >= oy + cs * gs) {
+        hint = '放到了棋盘外面哦';
+    } else if (!previewValid) {
+        hint = '❌ 无法放在这里';
+    }
+
+    dragIdx = -1;
+    previewAnchor = null;
+    previewValid = false;
+    draw();
+}
+
+canvas.addEventListener('pointerdown', onPointerDown);
+canvas.addEventListener('pointermove', onPointerMove);
+canvas.addEventListener('pointerup', onPointerUp);
+canvas.addEventListener('pointercancel', onPointerUp);
+canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+
+// ---- Helpers ----
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+// ---- Game loop ----
+function loop() {
+    updateParticles();
+    // Only redraw for particle animation when idle
+    if (!won && !failed && !dragging && flashCells.length === 0 && !countdownActive) {
+        // Redraw for particles (cheap)
+        draw();
+    }
+    requestAnimationFrame(loop);
+}
+
+// ---- Init ----
+window._cardRects = [];
+window._btnRects = [];
+resize();
+initParticles();
+loadLevel(0);
+loop();
 </script>
 </body>
 </html>
