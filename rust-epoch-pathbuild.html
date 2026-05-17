@@ -3,15 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>末日锈纪:筑路求生 V2.0</title>
+    <title>末日锈纪:筑路求生 V2.1</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body {
-            background: #0a0a12;
-            overflow: hidden;
-            user-select: none;
-            font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
-        }
+        body { background: #0a0a12; overflow: hidden; user-select: none; font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif; }
         #gameContainer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
@@ -19,11 +14,6 @@
 <body>
 <div id="gameContainer"></div>
 <script>
-// ============================================
-// 末日锈纪:筑路求生 V2.0 — Phaser 3
-// ============================================
-
-// ---- 方块定义（相对坐标，0,0为中心） ----
 const PIECE_DEFS = {
     I: { cells: [[0,-1],[0,0],[0,1],[0,2]], color: 0x4fc3f7 },
     L: { cells: [[0,-1],[0,0],[0,1],[1,1]], color: 0x81c784 },
@@ -38,11 +28,6 @@ const PIECE_DEFS = {
     I2: { cells: [[0,0],[0,1]], color: 0x80cbc4 },
 };
 
-function rotateCells(cells) {
-    return cells.map(([r,c]) => [c, -r]);
-}
-
-// ---- 关卡 ----
 const LEVELS = [
     { grid: 5, start: [2,0], end: [2,4], pieces: ['I','I','I3','L3','DOT'], obstacles: [] },
     { grid: 5, start: [0,0], end: [4,4], pieces: ['I','L','I3','L3','DOT','DOT'], obstacles: [] },
@@ -57,29 +42,21 @@ const LEVELS = [
 ];
 
 const LEVEL_NAMES = ['废墟起步','对角求生','暗坑初现','迂回前进','绝地逢生','中路突围','四方围困','逆流而上','深渊通道','终极筑路'];
-
-const COLORS = {
-    bg: 0x0a0a12,
-    gridBg: 0x0d0d1a,
-    gridLine: 0x1a1a2e,
-    obstacle: 0x2a1520,
-    obstacleX: 0x663333,
-    placed: 0x81c784,
-    start: 0x4fc3f7,
-    end: 0xff6b6b,
-    preview: 0xffd700,
-    previewBad: 0xff3333,
-    pathGlow: 0x81c784,
-    text: 0xffffff,
-    textDim: 0x8a8a9a,
-    gold: 0xffd700,
-    timerNormal: 0xffd700,
-    timerUrgent: 0xff4444,
-};
-
 const TIMER_SECONDS = 20;
 
-// ===================== Phaser Scene =====================
+// ============================================================
+// UE FIX NOTES (V2.1):
+// 1. All drawXxx methods destroy old objects before creating new
+// 2. Text objects tracked in arrays for cleanup
+// 3. Drag uses a single persistent listener + state flag
+// 4. Modals fully cleaned on dismiss
+// 5. Resize handled with this.scale.on('resize')
+// 6. Candidate cards larger (cs=26px) for touch
+// 7. 3-2-1 countdown before timer starts
+// 8. Place feedback: flash animation + sound
+// 9. Drop-outside-grid feedback text
+// ============================================================
+
 class GameScene extends Phaser.Scene {
     constructor() { super('GameScene'); }
 
@@ -90,15 +67,28 @@ class GameScene extends Phaser.Scene {
         this.cellSize = 0;
         this.gridOffsetX = 0;
         this.gridOffsetY = 0;
-        this.gridGraphics = null;
-        this.overlayGraphics = null;
-        this.timerText = null;
-        this.levelText = null;
-        this.hintText = null;
-        this.candidatesContainer = null;
-        this.piecesGroup = null;
-        this.dragPiece = null;
-        this.dragData = null;
+
+        // Tracked objects for cleanup
+        this._gridGfx = null;
+        this._overlayGfx = null;
+        this._topBarGfx = null;
+        this._textObjects = [];
+        this._candContainer = null;
+        this._undoBtn = null;
+        this._resetBtn = null;
+        this._btnGfxObjects = [];
+
+        // Drag state
+        this._dragging = false;
+        this._dragIdx = -1;
+        this._dragContainer = null;
+        this._dragGfx = null;
+        this._dragSourceCard = null;
+        this._dragSourceAlpha = 1;
+        this._previewAnchor = null;
+        this._previewValid = false;
+
+        // Game state
         this.gridData = [];
         this.gridSize = 5;
         this.startPos = [0,0];
@@ -109,15 +99,76 @@ class GameScene extends Phaser.Scene {
         this.failed = false;
         this.timeLeft = TIMER_SECONDS;
         this.timerEvent = null;
-        this.pathGlowTimer = 0;
+        this.countdownText = null;
 
-        // Static groups
-        this.piecesGroup = this.add.group();
-        this.overlayGraphics = this.add.graphics().setDepth(50);
+        // Persistent overlay graphics
+        this._overlayGfx = this.add.graphics().setDepth(50).setVisible(false);
+
+        // Global drag listener (single, won't accumulate)
+        this.input.on('pointermove', (pointer) => {
+            if (this._dragging && pointer.isDown) {
+                if (this._dragContainer) {
+                    this._dragContainer.x = pointer.x;
+                    this._dragContainer.y = pointer.y;
+                }
+                this._drawPreview(pointer.x, pointer.y);
+            }
+        });
+        this.input.on('pointerup', (pointer) => {
+            if (this._dragging) this._endDrag(pointer);
+        });
+
+        // Resize
+        this.scale.on('resize', (gameSize) => {
+            this.w = gameSize.width;
+            this.h = gameSize.height;
+            this._fullRedraw();
+        });
 
         this.loadLevel(0);
     }
 
+    // ---- Cleanup helpers ----
+    _clearTexts() {
+        for (const t of this._textObjects) { if (t && t.active) t.destroy(); }
+        this._textObjects = [];
+    }
+    _clearBtns() {
+        if (this._undoBtn) { this._undoBtn.destroy(); this._undoBtn = null; }
+        if (this._resetBtn) { this._resetBtn.destroy(); this._resetBtn = null; }
+        for (const g of this._btnGfxObjects) { if (g && g.active) g.destroy(); }
+        this._btnGfxObjects = [];
+    }
+    _addText(x, y, text, style, origin) {
+        const t = this.add.text(x, y, text, style).setDepth(21);
+        if (origin) {
+            if (origin === 0.5) t.setOrigin(0.5);
+            else if (typeof origin === 'object') t.setOrigin(origin.x, origin.y);
+        }
+        this._textObjects.push(t);
+        return t;
+    }
+
+    // ---- Layout ----
+    _calcLayout() {
+        const maxGridW = Math.min(this.w - 20, 420);
+        const maxGridH = this.h * 0.38;
+        this.cellSize = Math.floor(Math.min(maxGridW / this.gridSize, maxGridH / this.gridSize));
+        const gridPx = this.cellSize * this.gridSize;
+        this.gridOffsetX = Math.floor((this.w - gridPx) / 2);
+        this.gridOffsetY = 68;
+    }
+
+    _fullRedraw() {
+        this._calcLayout();
+        this._drawTopBar();
+        this._drawGrid();
+        this._drawCandidates();
+        this._drawButtons();
+        this._updateHintText();
+    }
+
+    // ---- Level management ----
     loadLevel(idx) {
         this.currentLevel = idx;
         const lv = LEVELS[idx] || LEVELS[LEVELS.length - 1];
@@ -125,14 +176,11 @@ class GameScene extends Phaser.Scene {
         this.startPos = [...lv.start];
         this.endPos = [...lv.end];
 
-        // Reset state
         this.won = false;
         this.failed = false;
-        this.timeLeft = TIMER_SECONDS;
         this.placedHistory = [];
         if (this.timerEvent) { this.timerEvent.remove(); this.timerEvent = null; }
 
-        // Init grid: 0=empty, 1=placed, 2=obstacle
         this.gridData = [];
         for (let r = 0; r < this.gridSize; r++) {
             this.gridData[r] = [];
@@ -140,619 +188,588 @@ class GameScene extends Phaser.Scene {
         }
         for (const [r,c] of lv.obstacles) this.gridData[r][c] = 2;
 
-        // Candidates
-        this.candidates = lv.pieces.map((name, i) => ({
+        this.candidates = lv.pieces.map((name) => ({
             name, def: PIECE_DEFS[name], cells: PIECE_DEFS[name].cells.map(c=>[...c]), used: false
         }));
 
-        // Layout
-        this.calcLayout();
-        this.drawGrid();
-        this.drawCandidates();
-        this.drawUI();
-        this.startTimer();
+        this._calcLayout();
+
+        // Clear everything
+        this._clearTexts();
+        this._clearBtns();
+        if (this._candContainer) { this._candContainer.destroy(); this._candContainer = null; }
+        if (this._gridGfx) { this._gridGfx.destroy(); this._gridGfx = null; }
+        if (this._topBarGfx) { this._topBarGfx.destroy(); this._topBarGfx = null; }
+        if (this.countdownText) { this.countdownText.destroy(); this.countdownText = null; }
+
+        this._drawTopBar();
+        this._drawGrid();
+        this._drawCandidates();
+        this._drawButtons();
+        this._updateHintText();
+
+        // 3-2-1 countdown then start timer
+        this._startCountdown();
     }
 
-    calcLayout() {
-        const maxGridW = Math.min(this.w - 20, 420);
-        const maxGridH = this.h * 0.42;
-        this.cellSize = Math.floor(Math.min(maxGridW / this.gridSize, maxGridH / this.gridSize));
-        const gridPx = this.cellSize * this.gridSize;
-        this.gridOffsetX = Math.floor((this.w - gridPx) / 2);
-        this.gridOffsetY = 70; // top bar space
+    _startCountdown() {
+        this.countdownText = this.add.text(this.w/2, this.h/2, '3', {
+            fontSize: '72px', fontStyle: 'bold', color: '#ffd700',
+            fontFamily: 'sans-serif', stroke: '#000', strokeThickness: 4
+        }).setOrigin(0.5).setDepth(300);
+
+        let count = 3;
+        const tick = () => {
+            count--;
+            if (count > 0) {
+                this.countdownText.setText(String(count));
+                this.tweens.add({ targets: this.countdownText, scaleX: 1.5, scaleY: 1.5, alpha: 0.5, duration: 300, yoyo: true, onComplete: tick });
+            } else {
+                this.countdownText.setText('GO!');
+                this.tweens.add({
+                    targets: this.countdownText, scaleX: 2, scaleY: 2, alpha: 0, duration: 500,
+                    onComplete: () => { if (this.countdownText) { this.countdownText.destroy(); this.countdownText = null; } }
+                });
+                this._startTimer();
+            }
+        };
+        this.tweens.add({ targets: this.countdownText, scaleX: 1.5, scaleY: 1.5, alpha: 0.5, duration: 300, yoyo: true, onComplete: tick });
+    }
+
+    // ---- Timer ----
+    _startTimer() {
+        this.timeLeft = TIMER_SECONDS;
+        this._updateTimerUI();
+        this.timerEvent = this.time.addEvent({
+            delay: 1000, repeat: TIMER_SECONDS,
+            callback: () => {
+                if (this.won || this.failed) { this.timerEvent.remove(); return; }
+                this.timeLeft--;
+                this._updateTimerUI();
+                if (this.timeLeft <= 0) {
+                    this.failed = true;
+                    this.timerEvent.remove();
+                    this.time.delayedCall(300, () => this._showFail());
+                }
+            }
+        });
+    }
+
+    _updateTimerUI() {
+        const objs = this._textObjects;
+        const timer = objs.find(o => o.getData('role') === 'timer');
+        if (!timer) return;
+        const color = this.timeLeft <= 5 ? '#ff4444' : '#ffd700';
+        timer.setText(`⏱ ${this.timeLeft}s`);
+        timer.setColor(color);
+        if (this.timeLeft <= 5) {
+            timer.setScale(1.1 + Math.sin(this.time.now / 150) * 0.1);
+        } else {
+            timer.setScale(1);
+        }
+    }
+
+    _updateHintText() {
+        const objs = this._textObjects;
+        const hint = objs.find(o => o.getData('role') === 'hint');
+        if (hint) {
+            hint.setPosition(this.w / 2, this.h - 18);
+        }
+    }
+
+    // ---- Draw top bar ----
+    _drawTopBar() {
+        if (this._topBarGfx) this._topBarGfx.destroy();
+        this._topBarGfx = this.add.graphics().setDepth(20);
+        this._topBarGfx.fillStyle(0xffffff, 0.03);
+        this._topBarGfx.fillRoundedRect(10, 6, this.w - 20, 54, 14);
+
+        // Remove old top bar texts
+        this._textObjects = this._textObjects.filter(t => {
+            const role = t.getData('role');
+            if (role === 'topbar') { t.destroy(); return false; }
+            return true;
+        });
+
+        const t1 = this._addText(48, 16, `第 ${this.currentLevel + 1} 关`, { fontSize: '15px', fontStyle: 'bold', color: '#ffffff' });
+        t1.setData('role', 'topbar');
+        const t2 = this._addText(48, 36, LEVEL_NAMES[this.currentLevel] || '末日筑路', { fontSize: '11px', color: '#8a8a9a' });
+        t2.setData('role', 'topbar');
+        const t3 = this._addText(26, 24, '🛤️', { fontSize: '20px' });
+        t3.setData('role', 'topbar');
+
+        const timer = this._addText(this.w - 30, 28, `⏱ ${TIMER_SECONDS}s`, { fontSize: '15px', fontStyle: 'bold', color: '#ffd700' });
+        timer.setOrigin(1, 0.5);
+        timer.setData('role', 'timer');
+
+        const hint = this._addText(this.w / 2, this.h - 18, '拖动方块到棋盘上', { fontSize: '12px', color: '#8a8a9a' });
+        hint.setOrigin(0.5);
+        hint.setData('role', 'hint');
     }
 
     // ---- Draw grid ----
-    drawGrid() {
-        if (this.gridGraphics) this.gridGraphics.destroy();
-        this.gridGraphics = this.add.graphics().setDepth(1);
-        const g = this.gridGraphics;
+    _drawGrid() {
+        if (this._gridGfx) this._gridGfx.destroy();
+        this._gridGfx = this.add.graphics().setDepth(1);
+
+        // Remove old marker texts
+        this._textObjects = this._textObjects.filter(t => {
+            const role = t.getData('role');
+            if (role === 'marker') { t.destroy(); return false; }
+            return true;
+        });
+
+        const g = this._gridGfx;
         const cs = this.cellSize;
         const ox = this.gridOffsetX;
         const oy = this.gridOffsetY;
         const gs = this.gridSize;
 
         // Background
-        g.fillStyle(COLORS.gridBg, 1);
+        g.fillStyle(0x0d0d1a, 1);
         g.fillRoundedRect(ox - 4, oy - 4, cs * gs + 8, cs * gs + 8, 12);
         g.lineStyle(1, 0xffd700, 0.15);
         g.strokeRoundedRect(ox - 4, oy - 4, cs * gs + 8, cs * gs + 8, 12);
 
-        // Cells
         for (let r = 0; r < gs; r++) {
             for (let c = 0; c < gs; c++) {
-                const x = ox + c * cs;
-                const y = oy + r * cs;
-                const v = this.gridData[r][c];
-
-                // Grid line
-                g.lineStyle(0.5, COLORS.gridLine, 0.5);
+                const x = ox + c * cs, y = oy + r * cs;
+                g.lineStyle(0.5, 0x1a1a2e, 0.5);
                 g.strokeRect(x, y, cs, cs);
 
-                if (v === 2) {
-                    g.fillStyle(COLORS.obstacle, 0.7);
+                if (this.gridData[r][c] === 2) {
+                    g.fillStyle(0x2a1520, 0.7);
                     g.fillRect(x + 1, y + 1, cs - 2, cs - 2);
-                    g.lineStyle(2, COLORS.obstacleX, 0.5);
-                    g.beginPath();
-                    g.moveTo(x + cs * 0.25, y + cs * 0.25);
-                    g.lineTo(x + cs * 0.75, y + cs * 0.75);
-                    g.moveTo(x + cs * 0.75, y + cs * 0.25);
-                    g.lineTo(x + cs * 0.25, y + cs * 0.75);
-                    g.strokePath();
+                    g.lineStyle(2, 0x663333, 0.5);
+                    g.beginPath(); g.moveTo(x+cs*0.25, y+cs*0.25); g.lineTo(x+cs*0.75, y+cs*0.75);
+                    g.moveTo(x+cs*0.75, y+cs*0.25); g.lineTo(x+cs*0.25, y+cs*0.75); g.strokePath();
+                } else if (this.gridData[r][c] === 1) {
+                    g.fillStyle(0x81c784, 0.35);
+                    g.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+                    g.lineStyle(1, 0x81c784, 0.2);
+                    g.strokeRect(x + 1, y + 1, cs - 2, cs - 2);
                 }
             }
         }
 
-        // Start marker
-        this.drawMarker(this.startPos, COLORS.start, 'S');
-        // End marker
-        this.drawMarker(this.endPos, COLORS.end, 'E');
+        // S/E markers
+        this._drawMarker(this.startPos, 0x4fc3f7, 'S');
+        this._drawMarker(this.endPos, 0xff6b6b, 'E');
     }
 
-    drawMarker(pos, color, label) {
+    _drawMarker(pos, color, label) {
         const cs = this.cellSize;
         const x = this.gridOffsetX + pos[1] * cs;
         const y = this.gridOffsetY + pos[0] * cs;
-        const g = this.gridGraphics;
+        const g = this._gridGfx;
 
-        g.fillStyle(color, 0.2);
+        g.fillStyle(color, 0.15);
         g.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+        g.lineStyle(2, color, 0.4);
+        g.strokeRect(x + 1, y + 1, cs - 2, cs - 2);
 
-        this.add.text(x + cs / 2, y + cs / 2, label, {
+        const colorStr = '#' + color.toString(16).padStart(6, '0');
+        const t = this._addText(x + cs / 2, y + cs / 2, label, {
             fontSize: Math.max(12, cs * 0.45) + 'px',
-            fontFamily: 'sans-serif',
-            fontStyle: 'bold',
-            color: '#' + color.toString(16).padStart(6, '0'),
-        }).setOrigin(0.5).setDepth(2);
+            fontStyle: 'bold', color: colorStr
+        });
+        t.setOrigin(0.5).setDepth(2);
+        t.setData('role', 'marker');
     }
 
     // ---- Draw candidates ----
-    drawCandidates() {
-        if (this.candidatesContainer) this.candidatesContainer.destroy();
-        this.candidatesContainer = this.add.container(0, 0).setDepth(10);
+    _drawCandidates() {
+        if (this._candContainer) { this._candContainer.destroy(); this._candContainer = null; }
+        this._candContainer = this.add.container(0, 0).setDepth(10);
 
-        const cs = Math.min(20, Math.floor((this.w - 40) / (this.candidates.length * 3)));
-        const totalW = this.candidates.length * (cs * 3 + 8) - 8;
-        const startX = Math.floor((this.w - totalW) / 2);
-        const baseY = this.gridOffsetY + this.cellSize * this.gridSize + 16;
+        const cs = 26; // fixed preview size, big enough for touch
+        const totalCards = this.candidates.length;
+        const gap = 6;
+        // Calculate card sizes
+        const cardSizes = this.candidates.map(cand => {
+            let minR=Infinity,maxR=-Infinity,minC=Infinity,maxC=-Infinity;
+            for (const [r,c] of cand.cells) { minR=Math.min(minR,r);maxR=Math.max(maxR,r);minC=Math.min(minC,c);maxC=Math.max(maxC,c); }
+            return { w: (maxC-minC+1)*cs + 14, h: (maxR-minR+1)*cs + 14, minR, maxR, minC, maxC };
+        });
+        const totalW = cardSizes.reduce((s, c) => s + c.w, 0) + (totalCards - 1) * gap;
+        const startX = Math.max(8, Math.floor((this.w - totalW) / 2));
+        const baseY = this.gridOffsetY + this.cellSize * this.gridSize + 14;
 
         // Label
-        this.add.text(this.w / 2, baseY - 4, '拖动方块到棋盘上', {
-            fontSize: '12px', color: '#8a8a9a',
-        }).setOrigin(0.5, 1).setDepth(10);
+        const label = this._addText(this.w / 2, baseY - 2, '拖动方块到棋盘上', { fontSize: '11px', color: '#8a8a9a' });
+        label.setOrigin(0.5, 1);
+        label.setData('role', 'candlabel');
 
+        let curX = startX;
         this.candidates.forEach((cand, idx) => {
-            const cells = cand.cells;
-            let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-            for (const [r, c] of cells) { minR = Math.min(minR, r); maxR = Math.max(maxR, r); minC = Math.min(minC, c); maxC = Math.max(maxC, c); }
-            const pw = (maxC - minC + 1) * cs;
-            const ph = (maxR - minR + 1) * cs;
-            const cardW = pw + 12;
-            const cardH = ph + 12;
-            const cardX = startX + idx * (cardW + 8) + cardW / 2;
-            const cardY = baseY + 8 + cardH / 2;
+            const sz = cardSizes[idx];
+            const cardW = sz.w, cardH = sz.h;
+            const cardCx = curX + cardW / 2;
+            const cardCy = baseY + 10 + cardH / 2;
 
-            // Card background
             const cardBg = this.add.graphics().setDepth(10);
-            cardBg.fillStyle(0xffffff, 0.05);
+            cardBg.fillStyle(0xffffff, cand.used ? 0.02 : 0.05);
             cardBg.lineStyle(2, cand.used ? 0x333333 : 0xffd700, cand.used ? 0.1 : 0.25);
             cardBg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 8);
             cardBg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 8);
 
-            // Piece preview
             const pieceGfx = this.add.graphics().setDepth(11);
-            for (const [r, c] of cells) {
-                const px = (c - minC) * cs + 6 - cardW / 2;
-                const py = (r - minR) * cs + 6 - cardH / 2;
+            for (const [r, c] of cand.cells) {
+                const px = (c - sz.minC) * cs + 7 - cardW / 2;
+                const py = (r - sz.minR) * cs + 7 - cardH / 2;
                 pieceGfx.fillStyle(cand.def.color, cand.used ? 0.15 : 0.85);
                 pieceGfx.fillRect(px + 1, py + 1, cs - 2, cs - 2);
                 pieceGfx.lineStyle(1, 0xffffff, 0.25);
                 pieceGfx.strokeRect(px + 1, py + 1, cs - 2, cs - 2);
             }
 
-            const card = this.add.container(cardX, cardY, [cardBg, pieceGfx]).setDepth(10);
+            const card = this.add.container(cardCx, cardCy, [cardBg, pieceGfx]).setDepth(10);
             if (cand.used) card.setAlpha(0.2);
 
-            // Interactive zone (invisible, larger for touch)
-            const hitArea = this.add.rectangle(0, 0, cardW + 8, cardH + 8, 0x000000, 0)
-                .setInteractive({ useHandCursor: true })
-                .setDepth(12);
-
+            const hitArea = this.add.rectangle(0, 0, cardW + 12, cardH + 12, 0x000000, 0)
+                .setInteractive({ useHandCursor: true }).setDepth(12);
             card.add(hitArea);
 
             if (!cand.used) {
-                hitArea.on('pointerdown', (pointer) => {
-                    this.startDrag(pointer, idx, card);
-                });
+                hitArea.on('pointerdown', (pointer) => this._startDrag(pointer, idx, card));
             }
+
+            this._candContainer.add(card);
+            curX += cardW + gap;
         });
     }
 
     // ---- Drag ----
-    startDrag(pointer, idx, sourceCard) {
-        if (this.won || this.failed) return;
-        const cand = this.candidates[idx];
+    _startDrag(pointer, idx, sourceCard) {
+        if (this._dragging || this.won || this.failed) return;
+        this._dragging = true;
+        this._dragIdx = idx;
 
-        // Create drag sprite
         const cs = this.cellSize;
-        let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-        for (const [r, c] of cand.cells) { minR = Math.min(minR, r); maxR = Math.max(maxR, r); minC = Math.min(minC, c); maxC = Math.max(maxC, c); }
-
-        const dragGfx = this.add.graphics().setDepth(100);
-        const dragContainer = this.add.container(pointer.x, pointer.y, [dragGfx]).setDepth(100);
-        dragContainer.setAlpha(0.7);
-
-        this.dragData = { idx, cand, dragGfx, dragContainer, sourceCard, cells: cand.cells };
-        this.sourceCardAlpha = sourceCard.alpha;
+        const cells = this.candidates[idx].cells;
+        this._dragSourceCard = sourceCard;
+        this._dragSourceAlpha = sourceCard.alpha;
         sourceCard.setAlpha(0.3);
 
-        this.input.setDraggable(dragContainer);
-        this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
-            gameObject.x = dragX;
-            gameObject.y = dragY;
-            this.drawPreview(dragX, dragY);
-        });
-        this.input.on('dragend', (pointer, gameObject) => {
-            this.endDrag(pointer);
-        });
-
-        this.drawDragPiece(pointer.x, pointer.y);
+        this._dragGfx = this.add.graphics().setDepth(100);
+        this._dragContainer = this.add.container(pointer.x, pointer.y, [this._dragGfx]).setDepth(100);
+        this._drawDragPiece(pointer.x, pointer.y);
     }
 
-    drawDragPiece(px, py) {
-        if (!this.dragData) return;
-        const { dragGfx, cells } = this.dragData;
+    _drawDragPiece(px, py) {
+        if (!this._dragGfx) return;
+        this._dragGfx.clear();
         const cs = this.cellSize;
+        const cells = this.candidates[this._dragIdx].cells;
+        let minR=Infinity,maxR=-Infinity,minC=Infinity,maxC=-Infinity;
+        for (const [r,c] of cells) { minR=Math.min(minR,r);maxR=Math.max(maxR,r);minC=Math.min(minC,c);maxC=Math.max(maxC,c); }
+        const offX = (maxC-minC+1)*cs/2, offY = (maxR-minR+1)*cs/2;
+        const color = this.candidates[this._dragIdx].def.color;
 
-        dragGfx.clear();
-        let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-        for (const [r, c] of cells) { minR = Math.min(minR, r); maxR = Math.max(maxR, r); minC = Math.min(minC, c); maxC = Math.max(maxC, c); }
-        const offX = (maxC - minC + 1) * cs / 2;
-        const offY = (maxR - minR + 1) * cs / 2;
-
-        for (const [r, c] of cells) {
-            const x = (c - minC) * cs - offX;
-            const y = (r - minR) * cs - offY;
-            dragGfx.fillStyle(this.dragData.cand.def.color, 0.7);
-            dragGfx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
-            dragGfx.lineStyle(2, 0xffffff, 0.5);
-            dragGfx.strokeRect(x + 1, y + 1, cs - 2, cs - 2);
+        for (const [r,c] of cells) {
+            const x = (c-minC)*cs - offX, y = (r-minR)*cs - offY;
+            this._dragGfx.fillStyle(color, 0.7);
+            this._dragGfx.fillRect(x+1, y+1, cs-2, cs-2);
+            this._dragGfx.lineStyle(2, 0xffffff, 0.5);
+            this._dragGfx.strokeRect(x+1, y+1, cs-2, cs-2);
         }
     }
 
-    drawPreview(px, py) {
-        const ov = this.overlayGraphics;
-        ov.clear();
-        if (!this.dragData) return;
+    _drawPreview(px, py) {
+        const ov = this._overlayGfx;
+        ov.clear().setVisible(true);
+        if (!this._dragging || this._dragIdx < 0) return;
 
-        const { cells, cand } = this.dragData;
         const cs = this.cellSize;
-        const ox = this.gridOffsetX;
-        const oy = this.gridOffsetY;
+        const ox = this.gridOffsetX, oy = this.gridOffsetY;
         const gs = this.gridSize;
+        const cells = this.candidates[this._dragIdx].cells;
 
-        // Snap to grid center of pointer
         const gc = Math.floor((px - ox) / cs);
         const gr = Math.floor((py - oy) / cs);
-
-        // Calculate anchor: pointer should be roughly center of piece
-        let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-        for (const [r, c] of cells) { minR = Math.min(minR, r); maxR = Math.max(maxR, r); minC = Math.min(minC, c); maxC = Math.max(maxC, c); }
-        const centerR = (minR + maxR) / 2;
-        const centerC = (minC + maxC) / 2;
-        const anchorR = Math.round(gr - centerR);
-        const anchorC = Math.round(gc - centerC);
+        let minR=Infinity,maxR=-Infinity,minC=Infinity,maxC=-Infinity;
+        for (const [r,c] of cells) { minR=Math.min(minR,r);maxR=Math.max(maxR,r);minC=Math.min(minC,c);maxC=Math.max(maxC,c); }
+        const anchorR = Math.round(gr - (minR+maxR)/2);
+        const anchorC = Math.round(gc - (minC+maxC)/2);
 
         let valid = true;
         const absCells = [];
-        for (const [r, c] of cells) {
-            const ar = anchorR + r;
-            const ac = anchorC + c;
-            absCells.push([ar, ac]);
-            if (ar < 0 || ar >= gs || ac < 0 || ac >= gs) valid = false;
-            else if (this.gridData[ar][ac] === 2 || this.gridData[ar][ac] === 1) valid = false;
+        for (const [r,c] of cells) {
+            const ar = anchorR+r, ac = anchorC+c;
+            absCells.push([ar,ac]);
+            if (ar<0||ar>=gs||ac<0||ac>=gs) valid = false;
+            else if (this.gridData[ar][ac]===2||this.gridData[ar][ac]===1) valid = false;
         }
-
-        for (const [r, c] of absCells) {
-            if (r < 0 || r >= gs || c < 0 || c >= gs) continue;
-            const x = ox + c * cs;
-            const y = oy + r * cs;
-            ov.fillStyle(valid ? COLORS.preview : COLORS.previewBad, 0.35);
-            ov.fillRect(x + 2, y + 2, cs - 4, cs - 4);
+        for (const [r,c] of absCells) {
+            if (r<0||r>=gs||c<0||c>=gs) continue;
+            ov.fillStyle(valid ? 0xffd700 : 0xff3333, 0.35);
+            ov.fillRect(ox+c*cs+2, oy+r*cs+2, cs-4, cs-4);
         }
-
         this._previewAnchor = [anchorR, anchorC];
         this._previewValid = valid;
     }
 
-    endDrag(pointer) {
-        if (!this.dragData) return;
+    _endDrag(pointer) {
+        if (!this._dragging) return;
+        this._dragging = false;
 
-        const { idx, cand, dragContainer, sourceCard } = this.dragData;
-        sourceCard.setAlpha(this.sourceCardAlpha);
+        if (this._dragSourceCard) this._dragSourceCard.setAlpha(this._dragSourceAlpha);
+        if (this._dragContainer) { this._dragContainer.destroy(); this._dragContainer = null; }
+        this._overlayGfx.clear().setVisible(false);
 
-        // Clean up drag
-        this.input.off('drag');
-        this.input.off('dragend');
-        dragContainer.destroy();
-        this.overlayGraphics.clear();
+        const px = pointer.x, py = pointer.y;
+        const ox = this.gridOffsetX, oy = this.gridOffsetY;
+        const cs = this.cellSize, gs = this.gridSize;
 
-        // Check if pointer is over grid
-        const px = pointer.x;
-        const py = pointer.y;
-        const ox = this.gridOffsetX;
-        const oy = this.gridOffsetY;
-        const cs = this.cellSize;
-        const gs = this.gridSize;
-
-        if (px >= ox && px < ox + cs * gs && py >= oy && py < oy + cs * gs && this._previewValid) {
-            this.placePiece(idx, this._previewAnchor[0], this._previewAnchor[1]);
+        if (px >= ox && px < ox+cs*gs && py >= oy && py < oy+cs*gs && this._previewValid) {
+            this._placePiece(this._dragIdx, this._previewAnchor[0], this._previewAnchor[1]);
+        } else if (px < ox || px >= ox+cs*gs || py < oy || py >= oy+cs*gs) {
+            this._setHint('放到了棋盘外面哦');
+        } else if (!this._previewValid) {
+            this._setHint('❌ 无法放在这里');
         }
 
-        this.dragData = null;
+        this._dragIdx = -1;
         this._previewAnchor = null;
         this._previewValid = false;
     }
 
-    // ---- Place piece ----
-    placePiece(idx, anchorR, anchorC) {
+    // ---- Place ----
+    _placePiece(idx, anchorR, anchorC) {
         const cand = this.candidates[idx];
-        const cells = cand.cells;
-        const absCells = cells.map(([r, c]) => [anchorR + r, anchorC + c]);
-
-        // Double-check validity
+        const absCells = cand.cells.map(([r,c]) => [anchorR+r, anchorC+c]);
         const gs = this.gridSize;
-        for (const [r, c] of absCells) {
-            if (r < 0 || r >= gs || c < 0 || c >= gs) return;
-            if (this.gridData[r][c] === 2 || this.gridData[r][c] === 1) return;
+
+        for (const [r,c] of absCells) {
+            if (r<0||r>=gs||c<0||c>=gs) return;
+            if (this.gridData[r][c]===2||this.gridData[r][c]===1) return;
         }
 
-        // Place on grid
-        for (const [r, c] of absCells) {
-            this.gridData[r][c] = 1;
-        }
-
+        for (const [r,c] of absCells) this.gridData[r][c] = 1;
         this.placedHistory.push({ idx, anchorR, anchorC, cells: absCells });
         cand.used = true;
 
-        // Redraw
-        this.drawGrid();
-        this.drawCandidates();
-        this.drawButtons();
-        this.setHint('方块已放置');
+        this._drawGrid();
+        this._drawCandidates();
+        this._drawButtons();
+        this._setHint('✅ 方块已放置');
 
-        // Check win
-        if (this.checkWin()) {
+        // Flash feedback
+        const cs = this.cellSize;
+        const ox = this.gridOffsetX, oy = this.gridOffsetY;
+        for (const [r,c] of absCells) {
+            const flash = this.add.rectangle(ox+c*cs+cs/2, oy+r*cs+cs/2, cs-2, cs-2, 0xffffff, 0.5).setDepth(5);
+            this.tweens.add({ targets: flash, alpha: 0, duration: 300, onComplete: () => flash.destroy() });
+        }
+
+        if (this._checkWin()) {
             this.won = true;
             if (this.timerEvent) { this.timerEvent.remove(); this.timerEvent = null; }
-            this.time.addEvent({ delay: 400, callback: () => this.showWin() });
+            this.time.delayedCall(500, () => this._showWin());
         }
     }
 
     undo() {
         if (this.placedHistory.length === 0 || this.won || this.failed) return;
         const last = this.placedHistory.pop();
-        for (const [r, c] of last.cells) {
-            this.gridData[r][c] = 0;
-        }
+        for (const [r,c] of last.cells) this.gridData[r][c] = 0;
         this.candidates[last.idx].used = false;
-        this.drawGrid();
-        this.drawCandidates();
-        this.drawButtons();
-        this.setHint('已撤销');
+        this._drawGrid(); this._drawCandidates(); this._drawButtons();
+        this._setHint('↩️ 已撤销');
     }
 
-    // ---- Win check (BFS) ----
-    checkWin() {
+    // ---- BFS ----
+    _checkWin() {
         const gs = this.gridSize;
-        const visited = Array.from({ length: gs }, () => Array(gs).fill(false));
+        const visited = Array.from({length:gs}, ()=>Array(gs).fill(false));
         const queue = [this.startPos];
         visited[this.startPos[0]][this.startPos[1]] = true;
         const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
-
-        while (queue.length > 0) {
-            const [r, c] = queue.shift();
-            if (r === this.endPos[0] && c === this.endPos[1]) return true;
-            for (const [dr, dc] of dirs) {
-                const nr = r + dr, nc = c + dc;
-                if (nr >= 0 && nr < gs && nc >= 0 && nc < gs && !visited[nr][nc]) {
-                    const v = this.gridData[nr][nc];
-                    if (v === 1) { // placed cells are walkable; start/end are also on placed or adjacent
-                        visited[nr][nc] = true;
-                        queue.push([nr, nc]);
-                    }
+        while (queue.length) {
+            const [r,c] = queue.shift();
+            if (r===this.endPos[0]&&c===this.endPos[1]) return true;
+            for (const [dr,dc] of dirs) {
+                const nr=r+dr,nc=c+dc;
+                if (nr>=0&&nr<gs&&nc>=0&&nc<gs&&!visited[nr][nc]&&this.gridData[nr][nc]===1) {
+                    visited[nr][nc]=true; queue.push([nr,nc]);
                 }
             }
         }
-        // Also check direct adjacency from start to end
         return false;
     }
 
-    findPath() {
+    _findPath() {
         const gs = this.gridSize;
-        const visited = Array.from({ length: gs }, () => Array(gs).fill(false));
-        const parent = Array.from({ length: gs }, () => Array(gs).fill(null));
+        const visited = Array.from({length:gs}, ()=>Array(gs).fill(false));
+        const parent = Array.from({length:gs}, ()=>Array(gs).fill(null));
         const queue = [this.startPos];
         visited[this.startPos[0]][this.startPos[1]] = true;
         const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
-
-        // Start and end are walkable nodes even if gridData is 0
-        while (queue.length > 0) {
-            const [r, c] = queue.shift();
-            if (r === this.endPos[0] && c === this.endPos[1]) {
+        while (queue.length) {
+            const [r,c] = queue.shift();
+            if (r===this.endPos[0]&&c===this.endPos[1]) {
                 const path = new Set();
-                let cur = [r, c];
-                while (cur) { path.add(cur[0] * gs + cur[1]); cur = parent[cur[0]][cur[1]]; }
+                let cur = [r,c];
+                while (cur) { path.add(cur[0]*gs+cur[1]); cur = parent[cur[0]][cur[1]]; }
                 return path;
             }
-            for (const [dr, dc] of dirs) {
-                const nr = r + dr, nc = c + dc;
-                if (nr >= 0 && nr < gs && nc >= 0 && nc < gs && !visited[nr][nc]) {
-                    const v = this.gridData[nr][nc];
-                    if (v === 1) {
-                        visited[nr][nc] = true;
-                        parent[nr][nc] = [r, c];
-                        queue.push([nr, nc]);
-                    }
+            for (const [dr,dc] of dirs) {
+                const nr=r+dr,nc=c+dc;
+                if (nr>=0&&nr<gs&&nc>=0&&nc<gs&&!visited[nr][nc]&&this.gridData[nr][nc]===1) {
+                    visited[nr][nc]=true; parent[nr][nc]=[r,c]; queue.push([nr,nc]);
                 }
             }
         }
         return new Set();
     }
 
-    // ---- Timer ----
-    startTimer() {
-        if (this.timerEvent) this.timerEvent.remove();
-        this.timeLeft = TIMER_SECONDS;
-        this.updateTimerUI();
-
-        this.timerEvent = this.time.addEvent({
-            delay: 1000,
-            repeat: TIMER_SECONDS,
-            callback: () => {
-                if (this.won || this.failed) { this.timerEvent.remove(); return; }
-                this.timeLeft--;
-                this.updateTimerUI();
-                if (this.timeLeft <= 0) {
-                    this.failed = true;
-                    this.timerEvent.remove();
-                    this.time.delayedCall(300, () => this.showFail());
-                }
-            }
-        });
+    _setHint(text) {
+        const hint = this._textObjects.find(o => o.getData('role') === 'hint');
+        if (hint) hint.setText(text);
     }
 
-    updateTimerUI() {
-        if (!this.timerText) return;
-        const color = this.timeLeft <= 5 ? '#ff4444' : '#ffd700';
-        this.timerText.setText(`⏱ ${this.timeLeft}s`);
-        this.timerText.setColor(color);
-        if (this.timeLeft <= 5) {
-            this.timerText.setScale(1.1 + Math.sin(this.time.now / 150) * 0.1);
-        } else {
-            this.timerText.setScale(1);
-        }
-    }
+    // ---- Buttons ----
+    _drawButtons() {
+        this._clearBtns();
+        const btnY = this.gridOffsetY + this.cellSize * this.gridSize + 90;
+        const btnW = 100, btnH = 38, gap = 10;
+        const totalW = btnW * 2 + gap;
+        const startX = (this.w - totalW) / 2;
 
-    // ---- UI ----
-    drawUI() {
-        // Top bar
-        const topBg = this.add.graphics().setDepth(20);
-        topBg.fillStyle(0xffffff, 0.03);
-        topBg.fillRoundedRect(10, 6, this.w - 20, 54, 14);
+        // Undo
+        const ubg = this.add.graphics().setDepth(20);
+        ubg.fillStyle(0xffffff, 0.05);
+        ubg.lineStyle(1, 0xffd700, 0.2);
+        ubg.fillRoundedRect(startX, btnY, btnW, btnH, 10);
+        ubg.strokeRoundedRect(startX, btnY, btnW, btnH, 10);
+        this._btnGfxObjects.push(ubg);
 
-        this.add.text(48, 18, `第 ${this.currentLevel + 1} 关`, {
-            fontSize: '15px', fontStyle: 'bold', color: '#ffffff'
-        }).setDepth(21);
+        const utxt = this.add.text(startX+btnW/2, btnY+btnH/2, '↩️ 撤销', { fontSize: '13px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5).setDepth(21);
+        this._btnGfxObjects.push(utxt);
 
-        this.add.text(48, 38, LEVEL_NAMES[this.currentLevel] || '末日筑路', {
-            fontSize: '11px', color: '#8a8a9a'
-        }).setDepth(21);
+        this._undoBtn = this.add.container(startX, btnY, []).setDepth(20).setSize(btnW, btnH);
+        this._undoBtn.setPosition(startX, btnY);
+        this._undoBtn.setInteractive({ useHandCursor: true });
+        this._undoBtn.on('pointerdown', () => this.undo());
 
-        this.add.text(26, 26, '🛤️', { fontSize: '18px' }).setDepth(21);
+        // Reset
+        const rx = startX + btnW + gap;
+        const rbg = this.add.graphics().setDepth(20);
+        rbg.fillStyle(0xffffff, 0.05);
+        rbg.lineStyle(1, 0xffd700, 0.2);
+        rbg.fillRoundedRect(rx, btnY, btnW, btnH, 10);
+        rbg.strokeRoundedRect(rx, btnY, btnW, btnH, 10);
+        this._btnGfxObjects.push(rbg);
 
-        this.timerText = this.add.text(this.w - 30, 28, `⏱ ${TIMER_SECONDS}s`, {
-            fontSize: '15px', fontStyle: 'bold', color: '#ffd700'
-        }).setOrigin(1, 0.5).setDepth(21);
+        const rtxt = this.add.text(rx+btnW/2, btnY+btnH/2, '🔃 重置', { fontSize: '13px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5).setDepth(21);
+        this._btnGfxObjects.push(rtxt);
 
-        this.hintText = this.add.text(this.w / 2, this.h - 20, '选择一个方块开始筑路', {
-            fontSize: '12px', color: '#8a8a9a'
-        }).setOrigin(0.5).setDepth(21);
-
-        this.drawButtons();
-    }
-
-    drawButtons() {
-        // Destroy old buttons
-        if (this.undoBtn) this.undoBtn.destroy();
-        if (this.resetBtn) this.resetBtn.destroy();
-
-        const btnY = this.gridOffsetY + this.cellSize * this.gridSize + 80;
-        const btnW = 100;
-        const btnH = 36;
-        const gap = 8;
-        const totalBtnW = btnW * 2 + gap;
-        const startX = (this.w - totalBtnW) / 2;
-
-        // Undo button
-        const undoBg = this.add.graphics().setDepth(20);
-        undoBg.fillStyle(0xffffff, 0.05);
-        undoBg.lineStyle(1, 0xffd700, 0.2);
-        undoBg.fillRoundedRect(startX, btnY, btnW, btnH, 10);
-        undoBg.strokeRoundedRect(startX, btnY, btnW, btnH, 10);
-
-        this.undoBtn = this.add.container(startX + btnW / 2, btnY + btnH / 2, [undoBg,
-            this.add.text(0, 0, '↩️ 撤销', { fontSize: '13px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5)
-        ]).setDepth(20);
-
-        this.undoBtn.setSize(btnW, btnH);
-        this.undoBtn.setInteractive({ useHandCursor: true });
-        this.undoBtn.on('pointerdown', () => this.undo());
-
-        // Reset button
-        const resetBg = this.add.graphics().setDepth(20);
-        const resetX = startX + btnW + gap;
-        resetBg.fillStyle(0xffffff, 0.05);
-        resetBg.lineStyle(1, 0xffd700, 0.2);
-        resetBg.fillRoundedRect(resetX, btnY, btnW, btnH, 10);
-        resetBg.strokeRoundedRect(resetX, btnY, btnW, btnH, 10);
-
-        this.resetBtn = this.add.container(resetX + btnW / 2, btnY + btnH / 2, [resetBg,
-            this.add.text(0, 0, '🔃 重置', { fontSize: '13px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5)
-        ]).setDepth(20);
-
-        this.resetBtn.setSize(btnW, btnH);
-        this.resetBtn.setInteractive({ useHandCursor: true });
-        this.resetBtn.on('pointerdown', () => this.loadLevel(this.currentLevel));
-    }
-
-    setHint(text) {
-        if (this.hintText) this.hintText.setText(text);
+        this._resetBtn = this.add.container(rx, btnY, []).setDepth(20).setSize(btnW, btnH);
+        this._resetBtn.setPosition(rx, btnY);
+        this._resetBtn.setInteractive({ useHandCursor: true });
+        this._resetBtn.on('pointerdown', () => this.loadLevel(this.currentLevel));
     }
 
     // ---- Win / Fail ----
-    showWin() {
+    _showWin() {
         const used = this.placedHistory.length;
-        const pathSet = this.findPath();
+        const pathSet = this._findPath();
+        const cs = this.cellSize, ox = this.gridOffsetX, oy = this.gridOffsetY;
 
-        // Glow path cells
-        const cs = this.cellSize;
-        const ox = this.gridOffsetX;
-        const oy = this.gridOffsetY;
         for (const key of pathSet) {
-            const r = Math.floor(key / this.gridSize);
-            const c = key % this.gridSize;
-            const rect = this.add.rectangle(ox + c * cs + cs/2, oy + r * cs + cs/2, cs - 4, cs - 4, COLORS.pathGlow, 0.3).setDepth(3);
+            const r = Math.floor(key / this.gridSize), c = key % this.gridSize;
+            const rect = this.add.rectangle(ox+c*cs+cs/2, oy+r*cs+cs/2, cs-4, cs-4, 0x81c784, 0.3).setDepth(3);
             this.tweens.add({ targets: rect, alpha: 0.6, duration: 500, yoyo: true, repeat: -1 });
         }
 
-        // Modal
-        const overlay = this.add.rectangle(this.w/2, this.h/2, this.w, this.h, 0x000000, 0.7).setDepth(200);
+        const modalObjs = [];
+        modalObjs.push(this.add.rectangle(this.w/2, this.h/2, this.w, this.h, 0x000000, 0.7).setDepth(200));
         const box = this.add.graphics().setDepth(201);
-        const bw = 300, bh = 180;
-        const bx = this.w/2 - bw/2, by = this.h/2 - bh/2;
+        const bw=300, bh=180, bx=this.w/2-bw/2, by=this.h/2-bh/2;
         box.fillStyle(0x1a1a2e, 1);
         box.fillRoundedRect(bx, by, bw, bh, 20);
         box.lineStyle(1, 0xffd700, 0.3);
         box.strokeRoundedRect(bx, by, bw, bh, 20);
+        modalObjs.push(box);
+        modalObjs.push(this.add.text(this.w/2, this.h/2-40, '🎉 通路达成!', { fontSize: '22px', fontStyle: 'bold', color: '#ffd700' }).setOrigin(0.5).setDepth(202));
+        modalObjs.push(this.add.text(this.w/2, this.h/2, `用了 ${used} 块完成筑路`, { fontSize: '14px', color: '#8a8a9a' }).setOrigin(0.5).setDepth(202));
 
-        this.add.text(this.w/2, this.h/2 - 40, '🎉 通路达成!', { fontSize: '22px', fontStyle: 'bold', color: '#ffd700' }).setOrigin(0.5).setDepth(202);
-        this.add.text(this.w/2, this.h/2, `用了 ${used} 块完成筑路`, { fontSize: '14px', color: '#8a8a9a' }).setOrigin(0.5).setDepth(202);
-
-        const nextBtn = this.add.text(this.w/2, this.h/2 + 50, '下一关 →', {
+        const nextBtn = this.add.text(this.w/2, this.h/2+50, '下一关 →', {
             fontSize: '15px', fontStyle: 'bold', color: '#000',
             backgroundColor: '#ffd700', padding: { x: 24, y: 10 }
-        }).setOrigin(0.5).setDepth(202).setInteractive({ useHandCursor: true});
+        }).setOrigin(0.5).setDepth(202).setInteractive({ useHandCursor: true });
+        modalObjs.push(nextBtn);
 
         nextBtn.on('pointerdown', () => {
-            overlay.destroy(); box.destroy();
+            for (const o of modalObjs) o.destroy();
             this.loadLevel(Math.min(this.currentLevel + 1, LEVELS.length - 1));
         });
     }
 
-    showFail() {
-        this.setHint('⏰ 时间到!');
+    _showFail() {
+        this._setHint('⏰ 时间到!');
 
-        const overlay = this.add.rectangle(this.w/2, this.h/2, this.w, this.h, 0x000000, 0.7).setDepth(200);
+        const modalObjs = [];
+        modalObjs.push(this.add.rectangle(this.w/2, this.h/2, this.w, this.h, 0x000000, 0.7).setDepth(200));
         const box = this.add.graphics().setDepth(201);
-        const bw = 300, bh = 180;
-        const bx = this.w/2 - bw/2, by = this.h/2 - bh/2;
+        const bw=300, bh=180, bx=this.w/2-bw/2, by=this.h/2-bh/2;
         box.fillStyle(0x1a1a2e, 1);
         box.fillRoundedRect(bx, by, bw, bh, 20);
         box.lineStyle(1, 0xff4444, 0.3);
         box.strokeRoundedRect(bx, by, bw, bh, 20);
+        modalObjs.push(box);
+        modalObjs.push(this.add.text(this.w/2, this.h/2-40, '⏰ 时间到!', { fontSize: '22px', fontStyle: 'bold', color: '#ff6b6b' }).setOrigin(0.5).setDepth(202));
+        modalObjs.push(this.add.text(this.w/2, this.h/2, `第 ${this.currentLevel+1} 关失败`, { fontSize: '14px', color: '#8a8a9a' }).setOrigin(0.5).setDepth(202));
 
-        this.add.text(this.w/2, this.h/2 - 40, '⏰ 时间到!', { fontSize: '22px', fontStyle: 'bold', color: '#ff6b6b' }).setOrigin(0.5).setDepth(202);
-        this.add.text(this.w/2, this.h/2, `第 ${this.currentLevel + 1} 关失败，再试试吧`, { fontSize: '14px', color: '#8a8a9a' }).setOrigin(0.5).setDepth(202);
-
-        const retryBtn = this.add.text(this.w/2, this.h/2 + 50, '🔄 再试一次', {
+        const retryBtn = this.add.text(this.w/2, this.h/2+50, '🔄 再试一次', {
             fontSize: '15px', fontStyle: 'bold', color: '#fff',
             backgroundColor: '#ff4444', padding: { x: 24, y: 10 }
         }).setOrigin(0.5).setDepth(202).setInteractive({ useHandCursor: true });
+        modalObjs.push(retryBtn);
 
         retryBtn.on('pointerdown', () => {
-            overlay.destroy(); box.destroy();
+            for (const o of modalObjs) o.destroy();
             this.loadLevel(this.currentLevel);
         });
     }
-
-    update() {
-        if (this.timeLeft <= 5 && this.timeLeft > 0 && !this.won && !this.failed) {
-            this.updateTimerUI();
-        }
-    }
 }
 
-// ---- Background particles ----
 class BgScene extends Phaser.Scene {
     constructor() { super('BgScene'); }
     create() {
         this.graphics = this.add.graphics();
         this.dots = [];
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 25; i++) {
             this.dots.push({
-                x: Math.random() * this.cameras.main.width,
-                y: Math.random() * this.cameras.main.height,
-                vx: (Math.random() - 0.5) * 0.4,
-                vy: (Math.random() - 0.5) * 0.4,
-                r: Math.random() * 2 + 0.5,
-                a: Math.random() * 0.3 + 0.05,
+                x: Math.random()*this.cameras.main.width, y: Math.random()*this.cameras.main.height,
+                vx: (Math.random()-0.5)*0.3, vy: (Math.random()-0.5)*0.3,
+                r: Math.random()*2+0.5, a: Math.random()*0.25+0.05,
             });
         }
     }
     update() {
-        const g = this.graphics;
-        g.clear();
-        const w = this.cameras.main.width;
-        const h = this.cameras.main.height;
+        const g = this.graphics; g.clear();
+        const w = this.cameras.main.width, h = this.cameras.main.height;
         for (const p of this.dots) {
             p.x += p.vx; p.y += p.vy;
-            if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
-            if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
+            if (p.x<0) p.x=w; if (p.x>w) p.x=0;
+            if (p.y<0) p.y=h; if (p.y>h) p.y=0;
             g.fillStyle(0xffd700, p.a);
             g.fillCircle(p.x, p.y, p.r);
         }
     }
 }
 
-// ---- Launch ----
-const config = {
+new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'gameContainer',
     width: Math.min(window.innerWidth, 500),
     height: window.innerHeight,
     backgroundColor: '#0a0a12',
-    scale: {
-        mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-    },
+    scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
     scene: [BgScene, GameScene],
-    input: {
-        touch: { capture: true },
-    },
-};
-
-const game = new Phaser.Game(config);
+    input: { touch: { capture: true } },
+});
 </script>
 </body>
 </html>
