@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>末日锈纪:筑路求生 V3.2</title>
+    <title>末日锈纪:筑路求生 V3.3</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
         html,body{width:100%;height:100%;overflow:hidden;background:#0a0a12}
@@ -22,12 +22,14 @@
         .cd-num{font-size:clamp(60px,20vw,90px);font-weight:900;color:#ffd700;text-shadow:0 0 40px rgba(255,215,0,.7);animation:cdPop .6s ease-out forwards;user-select:none}
         .cd-go{font-size:clamp(48px,16vw,72px);font-weight:900;color:#81c784;text-shadow:0 0 40px rgba(129,199,132,.7);animation:cdPop .6s ease-out forwards}
         @keyframes cdPop{0%{transform:scale(.4);opacity:0}50%{transform:scale(1.15);opacity:.9}100%{transform:scale(1);opacity:1}}
-        @keyframes timerPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
         .hint-bar{position:fixed;bottom:0;left:0;width:100%;padding:6px 16px;text-align:center;font-size:12px;z-index:50;pointer-events:none;transition:background .3s}
+        .sound-btn{position:fixed;top:12px;right:12px;width:36px;height:36px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,215,0,.2);border-radius:8px;z-index:50;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:background .2s}
+        .sound-btn:hover{background:rgba(255,255,255,0.12)}
     </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<button class="sound-btn" id="soundBtn">🔊</button>
 <div id="cd" class="cd-overlay" style="display:none"><span id="cdText" class="cd-num">3</span></div>
 <div id="hintBar" class="hint-bar"></div>
 <script>
@@ -63,6 +65,56 @@ const LEVELS = [
 const LEVEL_NAMES = ['废墟起步','对角求生','暗坑初现','迂回前进','绝地逢生','中路突围','四方围困','逆流而上','深渊通道','终极筑路'];
 const TIMER_SECONDS = 20;
 
+// ---- Audio Engine ----
+let audioCtx = null;
+let soundEnabled = true;
+const soundBtn = document.getElementById('soundBtn');
+
+function ensureAudio() {
+    if (!audioCtx) {
+        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playTone(freq, type, duration, vol) {
+    if (!soundEnabled || !audioCtx) return;
+    try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(vol || 0.18, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + duration);
+    } catch(e) {}
+}
+
+const SFX = {
+    place: () => { playTone(600, 'sine', 0.08, 0.15); setTimeout(() => playTone(900, 'sine', 0.06, 0.12), 40); },
+    win: () => {
+        [523,659,784,1047].forEach((f,i) => setTimeout(() => playTone(f,'sine',0.18,0.14), i * 80));
+    },
+    fail: () => {
+        playTone(220, 'sawtooth', 0.15, 0.12);
+        setTimeout(() => playTone(180, 'sawtooth', 0.2, 0.1), 120);
+    },
+    tick: () => playTone(440, 'square', 0.05, 0.08),
+    go: () => { playTone(880, 'sine', 0.1, 0.15); setTimeout(() => playTone(1100, 'sine', 0.15, 0.12), 60); },
+    undo: () => { playTone(400, 'sine', 0.06, 0.1); setTimeout(() => playTone(300, 'sine', 0.05, 0.08), 40); },
+    reset: () => { playTone(200, 'sine', 0.1, 0.1); setTimeout(() => playTone(250, 'sine', 0.08, 0.08), 80); },
+};
+
+soundBtn.addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    soundBtn.textContent = soundEnabled ? '🔊' : '🔇';
+    ensureAudio();
+    if (soundEnabled) playTone(880, 'sine', 0.1, 0.12);
+}, { passive: true });
+
 // ---- State ----
 let W, H, dpr;
 let gridSize, cellSize, gridOffsetX, gridOffsetY;
@@ -92,7 +144,7 @@ let hintTimer = null;
 
 // Layout zones
 let zone = {};
-let firstTime = true; // show tutorial on first load
+let firstTime = true;
 
 // ---- Resize ----
 function resize() {
@@ -108,31 +160,46 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
+// ---- Layout: fully dynamic, never overlaps ----
 function calcLayout() {
     if (!gridSize || !W || !H) return;
     const safeTop = (window.safeAreaInsets ? window.safeAreaInsets.top : 0);
     const safeBot = (window.safeAreaInsets ? window.safeAreaInsets.bottom : 0);
     const MARGIN = 12;
     const TOP_H = 54;
-    const CARD_AREA_H = 90;
     const BTN_H = 48;
     const BTN_GAP = 10;
-    const BTN_AREA_H = BTN_H + 12;
     const HINT_H = 28;
+    const BTN_AREA_H = BTN_H + 12;
+    const HEADER_H = 18; // "拖动下方方块..." header above cards
+
     const availableH = H - safeTop - safeBot;
-    const contentH = availableH - TOP_H - CARD_AREA_H - BTN_AREA_H - HINT_H - 24;
+    const bottomH = HINT_H + BTN_AREA_H + 24;
+    const availForTop = availableH - bottomH;
+
+    // Grid gets ~50% of remaining space (minimum 40%)
+    const gridAreaH = Math.max(availForTop * 0.42, 80);
+    const cardAreaH = availForTop - gridAreaH - 16;
+
+    // cellSize based on grid area
     const maxW = W - MARGIN * 2;
-    const maxH = Math.max(contentH, 80);
-    cellSize = Math.max(10, Math.min(Math.floor(maxW / gridSize), Math.floor(maxH / gridSize)));
+    cellSize = Math.max(10, Math.min(Math.floor(maxW / gridSize), Math.floor(gridAreaH / gridSize)));
+
     const gridPx = cellSize * gridSize;
+    const gridTop = safeTop + TOP_H + 8;
     gridOffsetX = Math.floor((W - gridPx) / 2);
-    gridOffsetY = safeTop + TOP_H + 8;
-    const gridBottom = gridOffsetY + gridPx;
-    const cardTop = gridBottom + 12;
-    const btnTop = cardTop + CARD_AREA_H + 4;
+    gridOffsetY = gridTop;
+    const gridBottom = gridTop + gridPx;
+
+    const cardTop = gridBottom + 16;
+    const cardBottom = cardTop + Math.max(cardAreaH, 60);
+    const btnTop = cardBottom + 4;
     const btnBottom = btnTop + BTN_AREA_H;
     const hintY = btnBottom + HINT_H;
-    zone = { safeTop, safeBot, TOP_H, gridPx, gridBottom, cardTop, CARD_AREA_H, btnTop, BTN_H, BTN_GAP, btnBottom, hintY, MARGIN };
+
+    zone = { safeTop, safeBot, TOP_H, MARGIN, gridTop, gridPx, gridBottom,
+             cardTop, cardBottom, btnTop, btnBottom, hintY, BTN_H, BTN_GAP,
+             HEADER_H, availableH, cardAreaH, gridAreaH };
 }
 
 // ---- Particles ----
@@ -184,8 +251,6 @@ function drawTopBar() {
     ctx.fillStyle = 'rgba(255,255,255,0.04)';
     roundRect(ctx, z.MARGIN, z.safeTop + 6, W - z.MARGIN * 2, z.TOP_H, 14);
     ctx.fill();
-
-    // Level name
     ctx.font = 'bold 15px sans-serif';
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'left';
@@ -193,16 +258,11 @@ function drawTopBar() {
     ctx.font = '11px sans-serif';
     ctx.fillStyle = '#6a6a8a';
     ctx.fillText(LEVEL_NAMES[currentLevel] || '', z.MARGIN + 24, z.safeTop + 46);
-
-    // Timer
     const urgent = timeLeft <= 5;
-    const tc = urgent ? '#ff4444' : '#ffd700';
     ctx.font = 'bold ' + (urgent ? '17' : '15') + 'px sans-serif';
-    ctx.fillStyle = tc;
+    ctx.fillStyle = urgent ? '#ff4444' : '#ffd700';
     ctx.textAlign = 'right';
     ctx.fillText('⏱ ' + timeLeft + 's', W - z.MARGIN, z.safeTop + 30);
-
-    // Pieces remaining counter
     const unused = candidates ? candidates.filter(c => !c.used).length : 0;
     ctx.font = '12px sans-serif';
     ctx.fillStyle = '#6a6a8a';
@@ -213,8 +273,6 @@ function drawTopBar() {
 function drawGrid() {
     if (!cellSize || !gridSize) return;
     const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY, gs = gridSize;
-
-    // Background
     ctx.fillStyle = '#0d0d1a';
     roundRect(ctx, ox - 4, oy - 4, cs * gs + 8, cs * gs + 8, 10);
     ctx.fill();
@@ -222,7 +280,6 @@ function drawGrid() {
     ctx.lineWidth = 1;
     roundRect(ctx, ox - 4, oy - 4, cs * gs + 8, cs * gs + 8, 10);
     ctx.stroke();
-
     for (let r = 0; r < gs; r++) {
         for (let c = 0; c < gs; c++) {
             const x = ox + c * cs, y = oy + r * cs;
@@ -230,9 +287,7 @@ function drawGrid() {
             ctx.lineWidth = 0.5;
             ctx.strokeRect(x, y, cs, cs);
             const val = gridData[r][c];
-
             if (val === 2) {
-                // Obstacle: dark red, clear X pattern
                 ctx.fillStyle = 'rgba(60,20,20,0.85)';
                 ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
                 ctx.strokeStyle = 'rgba(120,40,40,0.7)';
@@ -244,7 +299,6 @@ function drawGrid() {
                 ctx.lineTo(x + cs * 0.22, y + cs * 0.78);
                 ctx.stroke();
             } else if (val === 1) {
-                // Placed piece: green, more visible
                 ctx.fillStyle = 'rgba(80,160,90,0.55)';
                 ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
                 ctx.strokeStyle = 'rgba(129,199,132,0.35)';
@@ -253,17 +307,15 @@ function drawGrid() {
             }
         }
     }
-
-    drawMarker(startPos, '#29b6f6', 'S', '起');
-    drawMarker(endPos, '#ef5350', 'E', '终');
+    drawMarker(startPos, '#29b6f6', '起');
+    drawMarker(endPos, '#ef5350', '终');
 }
 
-function drawMarker(pos, color, label, labelCN) {
+function drawMarker(pos, color, labelCN) {
     if (!cellSize || !pos) return;
     const cs = cellSize;
     const x = gridOffsetX + pos[1] * cs, y = gridOffsetY + pos[0] * cs;
     const labelSize = Math.max(8, Math.min(cs * 0.38, 13));
-
     ctx.fillStyle = color + '33';
     ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
     ctx.strokeStyle = color + 'aa';
@@ -273,7 +325,7 @@ function drawMarker(pos, color, label, labelCN) {
     ctx.fillStyle = color;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(labelCN || label, x + cs / 2, y + cs / 2);
+    ctx.fillText(labelCN, x + cs / 2, y + cs / 2);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
 }
@@ -283,55 +335,59 @@ function drawCandidates() {
     if (!z || !candidates) return;
     const pcs = Math.max(12, Math.min(cellSize, 26));
     const totalCards = candidates.length;
-    const GAP = 4, PAD = 5;
-    const CARD_H = 72;
+    const GAP = 4, PAD = 5, CARD_PAD = 8;
     const maxRowW = W - 16;
+    const cardTop = z.cardTop;
+    const availH = z.cardBottom - cardTop;
 
+    // Compute card sizes
     const cardSizes = candidates.map(cand => {
         let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
         for (const [r, c] of cand.cells) {
             minR = Math.min(minR, r); maxR = Math.max(maxR, r);
             minC = Math.min(minC, c); maxC = Math.max(maxC, c);
         }
-        return {
-            w: (maxC - minC + 1) * pcs + PAD * 2,
-            h: (maxR - minR + 1) * pcs + PAD * 2,
-            minR, maxR, minC, maxC
-        };
+        return { w: (maxC - minC + 1) * pcs + PAD * 2,
+                 h: (maxR - minR + 1) * pcs + PAD * 2,
+                 minR, maxR, minC, maxC };
     });
 
-    // Wrap cards into rows
+    // Wrap into rows
     const rows = [];
     let curRow = [], curW = 0;
     for (let i = 0; i < totalCards; i++) {
         const cw = cardSizes[i].w;
         if (curW + cw + (curRow.length ? GAP : 0) > maxRowW && curRow.length > 0) {
-            rows.push([...curRow]);
-            curRow = [i];
-            curW = cw;
+            rows.push([...curRow]); curRow = [i]; curW = cw;
         } else {
-            curRow.push(i);
-            curW += cw + (curRow.length > 1 ? GAP : 0);
+            curRow.push(i); curW += cw + (curRow.length > 1 ? GAP : 0);
         }
     }
     if (curRow.length > 0) rows.push(curRow);
 
-    const totalRowH = rows.length * CARD_H;
-    const cardAreaTop = z.cardTop;
-    const availH = H - cardAreaTop - z.safeBot - z.btnBottom - 20;
-    const usedH = Math.min(totalRowH, Math.max(availH - 8, CARD_H));
-    const startY = cardAreaTop + Math.max(0, (usedH - totalRowH) / 2);
+    const cardH = Math.max(...cardSizes.map(s => s.h)) + CARD_PAD * 2;
+    const headerH = z.HEADER_H;
+    const totalCardArea = headerH + rows.length * cardH;
 
-    // Header: show remaining count
+    // Scale down card size if needed to fit in available height
+    const scale = totalCardArea > availH ? Math.sqrt(availH / totalCardArea) : 1;
+    const scaledPcs = Math.max(10, Math.floor(pcs * scale));
+    const scaledCardH = Math.max(...cardSizes.map(s => {
+        const rh = (s.maxR - s.minR + 1) * scaledPcs + PAD * 2;
+        return Math.max(s.h, rh + CARD_PAD * 2);
+    }));
+    const scaledTotalCardArea = headerH + rows.length * scaledCardH;
+
+    // Header
     const unused = candidates.filter(c => !c.used).length;
     ctx.font = '11px sans-serif';
     ctx.fillStyle = '#6a6a8a';
     ctx.textAlign = 'center';
-    ctx.fillText(unused > 0 ? '拖动下方方块到棋盘上（还剩 ' + unused + ' 块）' : '已用完全部方块！', W / 2, startY - 1);
+    ctx.fillText(unused > 0 ? '拖动下方方块到棋盘上（还剩 ' + unused + ' 块）' : '已用完全部方块！', W / 2, cardTop + 9);
     ctx.textAlign = 'left';
 
     window._cardRects = [];
-    let cardY = startY + 6;
+    let cardY = cardTop + headerH;
 
     for (const row of rows) {
         const rowSizes = row.map(i => cardSizes[i]);
@@ -340,8 +396,10 @@ function drawCandidates() {
 
         for (const ci of row) {
             const cand = candidates[ci];
-            const sz = cardSizes[ci];
-            const cw = sz.w, ch = sz.h;
+            const sz = rowSizes[row.indexOf(ci)] || cardSizes[ci];
+            const innerH = scaledCardH - CARD_PAD * 2;
+            const innerW = sz.w - PAD * 2;
+            const cw = sz.w, ch = scaledCardH;
             const cx = cardX, cy = cardY;
 
             ctx.fillStyle = cand.used ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)';
@@ -353,25 +411,25 @@ function drawCandidates() {
             ctx.stroke();
 
             if (cand.used) ctx.globalAlpha = 0.15;
-
+            const sz2 = cardSizes[ci];
             for (const [r, c] of cand.cells) {
-                const px = cx + PAD + (c - sz.minC) * pcs;
-                const py = cy + PAD + (r - sz.minR) * pcs;
+                const px = cx + PAD + (c - sz2.minC) * scaledPcs;
+                const py = cy + CARD_PAD + (r - sz2.minR) * scaledPcs;
+                const cellSz = Math.min(scaledPcs - 1, innerH / (sz2.maxR - sz2.minR + 1), innerW / (sz2.maxC - sz2.minC + 1));
                 ctx.fillStyle = cand.def.color;
-                ctx.fillRect(px + 1, py + 1, pcs - 2, pcs - 2);
+                ctx.fillRect(px + 1, py + 1, cellSz - 2, cellSz - 2);
                 ctx.strokeStyle = 'rgba(255,255,255,0.18)';
                 ctx.lineWidth = 0.5;
-                ctx.strokeRect(px + 1, py + 1, pcs - 2, pcs - 2);
+                ctx.strokeRect(px + 1, py + 1, cellSz - 2, cellSz - 2);
             }
             ctx.globalAlpha = 1;
 
             if (!cand.used) {
                 window._cardRects.push({ x: cx - 4, y: cy - 4, w: cw + 8, h: ch + 8, idx: ci });
             }
-
             cardX += cw + GAP;
         }
-        cardY += CARD_H;
+        cardY += scaledCardH;
     }
 }
 
@@ -383,7 +441,6 @@ function drawButtons() {
     const ux = 16;
     const hasUndo = placedHistory && placedHistory.length > 0;
 
-    // Undo
     ctx.fillStyle = hasUndo ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)';
     roundRect(ctx, ux, btnY, btnW, btnH, 10);
     ctx.fill();
@@ -398,7 +455,6 @@ function drawButtons() {
     ctx.fillText('↩️ 撤销', ux + btnW / 2, btnY + btnH / 2);
     window._btnRects = [{ x: ux, y: btnY, w: btnW, h: btnH, action: 'undo', disabled: !hasUndo }];
 
-    // Reset
     const rx = ux + btnW + z.BTN_GAP;
     ctx.fillStyle = 'rgba(255,255,255,0.06)';
     roundRect(ctx, rx, btnY, btnW, btnH, 10);
@@ -416,7 +472,6 @@ function drawButtons() {
 }
 
 function drawHint() {
-    const z = zone;
     const bar = document.getElementById('hintBar');
     if (!bar) return;
     bar.textContent = hintText;
@@ -429,7 +484,7 @@ function drawHint() {
 function drawDragPiece() {
     if (dragIdx < 0 || !cellSize) return;
     const cand = candidates[dragIdx];
-    const cs = cellSize;
+    const cs = Math.max(cellSize, 14);
     let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
     for (const [r, c] of cand.cells) {
         minR = Math.min(minR, r); maxR = Math.max(maxR, r);
@@ -455,12 +510,10 @@ function drawPreview() {
     const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY;
     const [ar, ac] = previewAnchor;
     const cand = candidates[dragIdx];
-    const valid = previewValid;
-
     for (const [r, c] of cand.cells) {
         const gr = ar + r, gc = ac + c;
         if (gr < 0 || gr >= gridSize || gc < 0 || gc >= gridSize) continue;
-        ctx.fillStyle = valid ? 'rgba(255,215,0,0.4)' : 'rgba(255,51,51,0.4)';
+        ctx.fillStyle = previewValid ? 'rgba(255,215,0,0.4)' : 'rgba(255,51,51,0.4)';
         ctx.fillRect(ox + gc * cs + 2, oy + gr * cs + 2, cs - 4, cs - 4);
     }
 }
@@ -536,6 +589,7 @@ function loadLevel(idx) {
 }
 
 function startCountdown() {
+    ensureAudio();
     countdownActive = true;
     const cd = document.getElementById('cd');
     const cdText = document.getElementById('cdText');
@@ -546,10 +600,11 @@ function startCountdown() {
         cd.style.display = 'flex';
         cdText.className = cls || 'cd-num';
         cdText.textContent = n > 0 ? n : 'GO!';
-        // Re-trigger animation
         cdText.style.animation = 'none';
-        cdText.offsetHeight; // reflow
+        cdText.offsetHeight;
         cdText.style.animation = 'cdPop .6s ease-out forwards';
+        if (n > 0) SFX.tick();
+        else SFX.go();
     }
 
     function tick() {
@@ -580,6 +635,7 @@ function startTimer() {
             failed = true;
             clearInterval(timerInterval);
             timerInterval = null;
+            SFX.fail();
             setTimeout(showFail, 200);
         }
     }, 1000);
@@ -596,6 +652,8 @@ function placePiece(idx, anchorR, anchorC) {
     placedHistory.push({ idx, anchorR, anchorC, cells: absCells });
     cand.used = true;
 
+    SFX.place();
+
     const now = Date.now();
     for (const [r, c] of absCells) flashCells.push({ r, c, t: now });
 
@@ -606,6 +664,7 @@ function placePiece(idx, anchorR, anchorC) {
     if (checkWin()) {
         won = true;
         if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+        SFX.win();
         setTimeout(showWin, 400);
     } else {
         const possible = canPossiblyWin();
@@ -618,6 +677,7 @@ function placePiece(idx, anchorR, anchorC) {
 
 function undo() {
     if (!placedHistory || placedHistory.length === 0 || won || failed) return;
+    SFX.undo();
     const last = placedHistory.pop();
     for (const [r, c] of last.cells) gridData[r][c] = 0;
     candidates[last.idx].used = false;
@@ -713,12 +773,12 @@ function showTutorial() {
             ✋ 拖动方块卡片，放到棋盘上<br>
             ⏱️ 每关限时 <b>20秒</b><br>
             🔄 用撤销和重置按钮来调整<br>
-            ⚠️ 注意：路断了就来不及了！
+            🔊 右上角可开关声音
         </p>
         <button id="btnStart">开始游戏 →</button>
     `);
     const btn = document.getElementById('btnStart');
-    if (btn) btn.onclick = () => { div.remove(); };
+    if (btn) btn.onclick = () => { ensureAudio(); div.remove(); };
 }
 
 function showWin() {
@@ -735,9 +795,8 @@ function showWin() {
 
     const used = placedHistory ? placedHistory.length : 0;
     const total = candidates ? candidates.length : 0;
-    const allUsed = candidates ? candidates.every(c => c.used) : false;
-    const timeUsed = TIMER_SECONDS - timeLeft;
     const isLast = currentLevel >= LEVELS.length - 1;
+    const timeUsed = TIMER_SECONDS - timeLeft;
 
     let msg = `<h2>🎉 通路达成!</h2><p>用了 ${used}/${total} 块 | 用时 ${timeUsed}秒</p>`;
     if (isLast) msg += `<p style="color:#ffd700;font-size:13px">🏆 恭喜通关全部关卡！</p>`;
@@ -745,11 +804,7 @@ function showWin() {
 
     const div = showModal(msg);
     const btnNext = document.getElementById('btnNext');
-    if (btnNext) btnNext.onclick = () => {
-        div.remove();
-        if (isLast) loadLevel(0);
-        else loadLevel(currentLevel + 1);
-    };
+    if (btnNext) btnNext.onclick = () => { div.remove(); if (isLast) loadLevel(0); else loadLevel(currentLevel + 1); };
 }
 
 function showFail() {
@@ -776,29 +831,31 @@ function getXY(e) {
 }
 
 function hitTest(x, y, rects) {
+    if (!rects) return null;
     for (const r of rects) {
         if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return r;
     }
     return null;
 }
 
-function onPointerDown(e) {
+canvas.addEventListener('pointerdown', (e) => {
     if (won || failed || countdownActive) return;
     e.preventDefault();
+    ensureAudio();
     const [x, y] = getXY(e);
     lastPointerX = x;
     lastPointerY = y;
 
-    const btn = hitTest(x, y, window._btnRects || []);
+    const btn = hitTest(x, y, window._btnRects);
     if (btn) {
         if (!btn.disabled) {
             if (btn.action === 'undo') undo();
-            else if (btn.action === 'reset') loadLevel(currentLevel);
+            else if (btn.action === 'reset') { SFX.reset(); loadLevel(currentLevel); }
         }
         return;
     }
 
-    const card = hitTest(x, y, window._cardRects || []);
+    const card = hitTest(x, y, window._cardRects);
     if (card) {
         dragging = true;
         dragIdx = card.idx;
@@ -806,9 +863,9 @@ function onPointerDown(e) {
         previewValid = false;
         draw();
     }
-}
+}, { passive: false });
 
-function onPointerMove(e) {
+canvas.addEventListener('pointermove', (e) => {
     if (!dragging) return;
     e.preventDefault();
     const [x, y] = getXY(e);
@@ -816,7 +873,7 @@ function onPointerMove(e) {
     lastPointerY = y;
 
     if (!cellSize || !gridSize) { draw(); return; }
-    const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY;
+    const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY, gs = gridSize;
     const cand = candidates[dragIdx];
     let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
     for (const [r, c] of cand.cells) {
@@ -831,43 +888,34 @@ function onPointerMove(e) {
     let valid = true;
     for (const [r, c] of cand.cells) {
         const ar = anchorR + r, ac = anchorC + c;
-        if (ar < 0 || ar >= gridSize || ac < 0 || ac >= gridSize) valid = false;
+        if (ar < 0 || ar >= gs || ac < 0 || ac >= gs) valid = false;
         else if (gridData[ar][ac] === 2 || gridData[ar][ac] === 1) valid = false;
     }
     previewAnchor = [anchorR, anchorC];
     previewValid = valid;
     draw();
-}
+}, { passive: false });
 
-function onPointerUp(e) {
+canvas.addEventListener('pointerup', (e) => {
     if (!dragging) return;
     e.preventDefault();
-    const [x, y] = getXY(e);
     dragging = false;
 
-    if (cellSize && gridSize) {
-        const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY, gs = gridSize;
-        const gRight = ox + cs * gs, gBottom = oy + cs * gs;
-        if (x >= ox && x < gRight && y >= oy && y < gBottom && previewValid) {
-            placePiece(dragIdx, previewAnchor[0], previewAnchor[1]);
-        } else if (x < ox || x >= gRight || y < oy || y >= gBottom) {
-            setHint('📍 放到棋盘格子上', '#6a6a8a');
-            draw();
-        } else if (!previewValid) {
-            setHint('❌ 位置被占用或超出边界', '#ff6b6b');
-            draw();
-        }
+    if (cellSize && gridSize && previewValid) {
+        placePiece(dragIdx, previewAnchor[0], previewAnchor[1]);
+    } else if (previewAnchor && !previewValid) {
+        setHint('❌ 位置被占用或超出边界', '#ff6b6b');
     }
 
     dragIdx = -1;
     previewAnchor = null;
     previewValid = false;
-}
+    draw();
+}, { passive: false });
 
-canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
-canvas.addEventListener('pointermove', onPointerMove, { passive: false });
-canvas.addEventListener('pointerup', onPointerUp, { passive: false });
-canvas.addEventListener('pointercancel', onPointerUp, { passive: false });
+canvas.addEventListener('pointercancel', (e) => {
+    dragging = false; dragIdx = -1; previewAnchor = null; previewValid = false; draw();
+}, { passive: false });
 
 // ---- Helpers ----
 function roundRect(ctx, x, y, w, h, r) {
