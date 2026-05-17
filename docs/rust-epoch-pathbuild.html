@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>末日锈纪:筑路求生 V3.0</title>
+    <title>末日锈纪:筑路求生 V3.0.1</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
         body{background:#0a0a12;overflow:hidden;user-select:none;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif}
@@ -82,8 +82,8 @@ let flashCells = [];
 // ---- Resize ----
 function resize() {
     dpr = window.devicePixelRatio || 1;
-    W = Math.min(window.innerWidth, 500);
-    H = window.innerHeight;
+    W = Math.min(window.innerWidth || 375, 500);
+    H = window.innerHeight || 667;
     canvas.width = W * dpr;
     canvas.height = H * dpr;
     canvas.style.width = W + 'px';
@@ -387,7 +387,6 @@ function drawPreview() {
 function drawFlash() {
     const now = Date.now();
     flashCells = flashCells.filter(f => now - f.t < 300);
-    const alpha = 0.5 * (1 - flashCells.length > 0 ? 0 : 0);
     for (const f of flashCells) {
         const elapsed = now - f.t;
         const a = 0.5 * (1 - elapsed / 300);
@@ -415,9 +414,14 @@ function loadLevel(idx) {
     }
     for (const [r, c] of lv.obstacles) gridData[r][c] = 2;
 
-    candidates = lv.pieces.map(name => ({
-        name, def: PIECE_DEFS[name], cells: PIECE_DEFS[name].cells.map(c => [...c]), used: false
-    }));
+    candidates = lv.pieces.map(name => {
+        const def = PIECE_DEFS[name];
+        if (!def) {
+            console.error('Unknown piece:', name);
+            return { name, def: PIECE_DEFS.DOT, cells: [[0,0]], used: false };
+        }
+        return { name, def, cells: def.cells.map(c => [...c]), used: false };
+    });
 
     hint = '拖动方块到棋盘上';
     timeLeft = TIMER_SECONDS;
@@ -596,7 +600,8 @@ function showWin() {
         <p>用了 ${used} 块完成筑路</p>
         <button class="btn-next" id="btnNext">下一关 →</button>
     `);
-    document.getElementById('btnNext').onclick = () => {
+    const btnNext = document.getElementById('btnNext');
+    if (btnNext) btnNext.onclick = () => {
         div.remove();
         loadLevel(Math.min(currentLevel + 1, LEVELS.length - 1));
     };
@@ -610,7 +615,8 @@ function showFail() {
         <p>第 ${currentLevel + 1} 关失败，再试试吧</p>
         <button class="btn-retry" id="btnRetry">🔄 再试一次</button>
     `, 'fail');
-    document.getElementById('btnRetry').onclick = () => {
+    const btnRetry = document.getElementById('btnRetry');
+    if (btnRetry) btnRetry.onclick = () => {
         div.remove();
         loadLevel(currentLevel);
     };
@@ -619,7 +625,7 @@ function showFail() {
 // ---- Input ----
 function getXY(e) {
     const rect = canvas.getBoundingClientRect();
-    if (e.touches) {
+    if (e.touches && e.touches.length > 0) {
         return [e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top];
     }
     return [e.clientX - rect.left, e.clientY - rect.top];
@@ -733,11 +739,7 @@ function roundRect(ctx, x, y, w, h, r) {
 // ---- Game loop ----
 function loop() {
     updateParticles();
-    // Only redraw for particle animation when idle
-    if (!won && !failed && !dragging && flashCells.length === 0 && !countdownActive) {
-        // Redraw for particles (cheap)
-        draw();
-    }
+    draw();
     requestAnimationFrame(loop);
 }
 
