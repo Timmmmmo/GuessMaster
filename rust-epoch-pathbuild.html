@@ -8,7 +8,7 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>末日锈纪:筑路求生 V3.5</title>
+    <title>末日锈纪:筑路求生 V3.6</title>
 
     <style>
 
@@ -48,7 +48,7 @@
 
         .hint-bar{position:fixed;bottom:0;left:0;width:100%;padding:6px 16px;text-align:center;font-size:12px;z-index:50;pointer-events:none;transition:background .3s}
 
-        .sound-btn{position:fixed;top:12px;right:12px;width:36px;height:36px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,215,0,.2);border-radius:8px;z-index:50;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:background .2s}
+        .sound-btn{position:fixed;top:calc(12px + env(safe-area-inset-top, 0px));right:12px;width:36px;height:36px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,215,0,.2);border-radius:8px;z-index:50;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:background .2s}
 
         .sound-btn:hover{background:rgba(255,255,255,0.12)}
 
@@ -274,6 +274,8 @@ let countdownActive = false;
 
 let flashCells = [];
 
+let winPath = null;
+
 
 
 // Hint system
@@ -291,6 +293,7 @@ let hintTimer = null;
 let zone = {};
 
 let firstTime = true;
+let tutorialShowing = false;
 
 
 
@@ -478,6 +481,7 @@ function draw() {
 
     drawGrid();
 
+    if (winPath && won) drawWinPath();
     drawCandidates();
 
     drawButtons();
@@ -661,6 +665,16 @@ function drawMarker(pos, color, labelCN) {
 }
 
 
+
+function drawWinPath() {
+    if (!winPath || !cellSize) return;
+    const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY;
+    for (const key of winPath) {
+        const r = Math.floor(key / gridSize), c = key % gridSize;
+        ctx.fillStyle = 'rgba(129,199,132,0.55)';
+        ctx.fillRect(ox + c * cs + 2, oy + r * cs + 2, cs - 4, cs - 4);
+    }
+}
 
 function drawCandidates() {
 
@@ -1128,6 +1142,8 @@ function loadSave() {
         var d = JSON.parse(s);
 
         if (d.v !== 1) return false;
+        const lv = LEVELS[d.level];
+        if (!lv || !d.grid || d.grid.length !== lv.grid) return false;
 
         currentLevel = d.level;
 
@@ -1156,6 +1172,7 @@ function loadLevel(idx) {
     endPos = [...lv.end];
 
     won = false;
+    winPath = null;
 
     failed = false;
 
@@ -1311,7 +1328,7 @@ function startTimer() {
 
     timerInterval = setInterval(() => {
 
-        if (won || failed || countdownActive) return;
+        if (won || failed || countdownActive || tutorialShowing) return;
 
         timeLeft--;
 
@@ -1585,6 +1602,7 @@ function showModal(content, className) {
 
 
 function showTutorial() {
+    tutorialShowing = true;
 
     const div = showModal(`
 
@@ -1612,7 +1630,7 @@ function showTutorial() {
 
     const btn = document.getElementById('btnStart');
 
-    if (btn) btn.onclick = () => { ensureAudio(); div.remove(); };
+    if (btn) btn.onclick = () => { tutorialShowing = false; ensureAudio(); div.remove(); };
 
 }
 
@@ -1626,20 +1644,7 @@ function showWin() {
 
     if (!cellSize) return;
 
-    const pathSet = findPath();
-
-    const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY;
-
-    for (const key of pathSet) {
-
-        const r = Math.floor(key / gridSize), c = key % gridSize;
-
-        ctx.fillStyle = 'rgba(129,199,132,0.55)';
-
-        ctx.fillRect(ox + c * cs + 2, oy + r * cs + 2, cs - 4, cs - 4);
-
-    }
-
+        winPath = findPath();
     draw();
 
 
@@ -1736,7 +1741,7 @@ function hitTest(x, y, rects) {
 
 canvas.addEventListener('pointerdown', (e) => {
 
-    if (won || failed || countdownActive) return;
+    if (won || failed || countdownActive || tutorialShowing) return;
 
     e.preventDefault();
 
