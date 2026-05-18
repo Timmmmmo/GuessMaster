@@ -275,6 +275,14 @@ let lastPointerX = 0, lastPointerY = 0;
 // Particles
 
 let particles = [];
+
+// 鼠标位置追踪（用于卡片悬浮效果）
+window._mousePos = [0, 0];
+canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    window._mousePos = [e.clientX - rect.left, e.clientY - rect.top];
+});
+canvas.addEventListener('mouseleave', () => { window._mousePos = null; });
 let confetti = [];
 let celebrating = false;
 
@@ -428,6 +436,14 @@ function calcLayout() {
 
 // ---- Particles ----
 
+
+
+// 触屏震动反馈（移动端）
+function vibrate(ms) {
+    if (navigator.vibrate) {
+        navigator.vibrate(ms || 20);
+    }
+}
 
 // ---- 胜利撒花系统 ----
 function spawnConfetti() {
@@ -708,16 +724,16 @@ function drawWinPath() {
 }
 
 function drawCandidates() {
-    // 悬浮动效：检测鼠标悬停
-    const hoverIdx = (() => {
-        if (!window._mousePos) return -1;
+    // 悬浮动效：检测鼠标悬停的卡片索引
+    let hoverCardIdx = -1;
+    if (window._mousePos && window._cardRects) {
         const [mx, my] = window._mousePos;
-        for (let i = 0; i < (window._cardRects || []).length; i++) {
-            const r = window._cardRects[i];
-            if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) return i;
+        for (const r of window._cardRects) {
+            if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
+                hoverCardIdx = r.idx; break;
+            }
         }
-        return -1;
-    })();
+    }
 
     const z = zone;
 
@@ -935,6 +951,8 @@ function drawCandidates() {
                 window._cardRects.push({ x: cx - 4, y: cy - 4, w: cw + 8, h: ch + 8, idx: ci });
 
             }
+
+            if (isHover && !cand.used) ctx.restore();
 
             cardX += cw + GAP;
 
@@ -1443,6 +1461,7 @@ function placePiece(idx, anchorR, anchorC) {
 
 
     SFX.place();
+        vibrate(25);
 
 
 
@@ -1493,6 +1512,7 @@ function undo() {
     if (!placedHistory || placedHistory.length === 0 || won || failed) return;
 
     SFX.undo();
+        vibrate(15);
 
     const last = placedHistory.pop();
 
@@ -1713,6 +1733,7 @@ function showWin() {
         winPath = findPath();
     draw();
     spawnConfetti();
+        vibrate([100, 50, 100]);
 
 
 
