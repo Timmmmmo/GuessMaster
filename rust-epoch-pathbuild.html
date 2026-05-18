@@ -2093,6 +2093,80 @@ function roundRect(ctx, x, y, w, h, r) {
 
 // ---- Game loop ----
 
+
+// ---- Transition System ----
+let transitionText = '';
+let transitionAlpha = 0;
+let transitionScale = 0.4;
+let transitionPhase = '';
+
+function startTransition(text, onDone) {
+    transitionText = text;
+    transitionAlpha = 1;
+    transitionScale = 0.4;
+    transitionPhase = 'show';
+    
+    let start = null;
+    function step(ts) {
+        if (!start) start = ts;
+        const elapsed = ts - start;
+        
+        if (transitionPhase === 'show') {
+            transitionScale = 0.4 + (1 - 0.4) * Math.min(elapsed / 300, 1);
+            transitionAlpha = 1;
+            if (elapsed >= 300) {
+                transitionPhase = 'hold';
+                start = ts;
+            }
+        } else if (transitionPhase === 'hold') {
+            if (elapsed >= 600) {
+                transitionPhase = 'hide';
+                start = ts;
+            }
+        } else if (transitionPhase === 'hide') {
+            transitionAlpha = 1 - Math.min(elapsed / 300, 1);
+            if (elapsed >= 300) {
+                transitionText = '';
+                transitionAlpha = 0;
+                onDone();
+                return;
+            }
+        }
+        
+        requestAnimationFrame(step);
+    }
+    
+    requestAnimationFrame(step);
+}
+
+function drawTransition() {
+    if (!transitionText) return;
+    
+    ctx.save();
+    ctx.globalAlpha = transitionAlpha;
+    
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, W, H);
+    
+    ctx.globalAlpha = transitionAlpha;
+    const fontSize = Math.min(W * 0.1, 60);
+    ctx.font = '900 ' + fontSize + 'px -apple-system, sans-serif';
+    ctx.fillStyle = '#ffd700';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(255,215,0,0.7)';
+    ctx.shadowBlur = 40;
+    
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(transitionScale, transitionScale);
+    ctx.fillText(transitionText, 0, 0);
+    ctx.restore();
+    
+    ctx.shadowBlur = 0;
+    ctx.restore();
+}
+
 function loop() {
 
     updateParticles();
