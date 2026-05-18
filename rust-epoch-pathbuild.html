@@ -1345,7 +1345,7 @@ function loadSave() {
 
 
 function loadLevel(idx) {
-    startTransition('第 ' + (idx + 1) + ' 关', () => {
+    startTransition('第 ' + (idx + 1) + '/' + LEVELS.length + ' 关', () => {
 
     currentLevel = Math.max(0, Math.min(idx, LEVELS.length - 1));
 
@@ -1852,7 +1852,14 @@ function showWin() {
 
     const btnNext = document.getElementById('btnNext');
 
-    if (btnNext) btnNext.onclick = () => { div.remove(); if (isLast) loadLevel(0); else loadLevel(currentLevel + 1); };
+    if (btnNext) btnNext.onclick = () => { div.remove(); if (isLast) 
+// P1-6: 音效开关引导（首次加载提示）
+if (!localStorage.getItem('soundHintShown')) {
+    setTimeout(() => setHint('💡 右上角可开关音效', '#ffd700'), 1500);
+    localStorage.setItem('soundHintShown', 'true');
+}
+
+loadLevel(0); else loadLevel(currentLevel + 1); };
 
 }
 
