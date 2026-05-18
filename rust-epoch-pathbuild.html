@@ -668,7 +668,7 @@ function drawTopBar() {
 
     ctx.textAlign = 'left';
 
-    ctx.fillText('🛤️  第 ' + (currentLevel + 1) + ' 关', z.MARGIN + 24, z.safeTop + 28);
+    ctx.fillText('🛤️  第 ' + (currentLevel + 1) + '/' + LEVELS.length + ' 关', z.MARGIN + 24, z.safeTop + 28);
 
     ctx.font = '11px sans-serif';
 
@@ -886,7 +886,7 @@ function drawCandidates() {
 
 
 
-    const cardH = Math.max(...cardSizes.map(s => s.h)) + CARD_PAD * 2;
+    const cardH = Math.max(44, Math.max(...cardSizes.map(s => s.h)) + CARD_PAD * 2);
 
     const headerH = z.HEADER_H;
 
@@ -1796,21 +1796,12 @@ function showTutorial() {
 
         <h2>🎮 末日锈纪:筑路求生</h2>
 
-        <p style="text-align:left;font-size:13px;line-height:1.8;color:#aaa">
-
-            🟦 <b style="color:#29b6f6">蓝色格</b>是起点，<b style="color:#ef5350">红色格</b>是终点<br>
-
-            🔵 用方块搭一条通路连接它们<br>
-
-            ✋ 拖动方块卡片，放到棋盘上<br>
-
-            ⏱️ 每关限时 <b>20秒</b><br>
-
-            🔄 用撤销和重置按钮来调整<br>
-
-            🔊 右上角可开关声音
-
-        </p>
+        <p style="text-align:left;font-size:13px;line-height:1.8;color:#aaa">🟦 <b style="color:#29b6f6">蓝色格</b>是起点，<b style="color:#ef5350">红色格</b>是终点<br>
+🔵 <b>拖动下方方块</b>到棋盘上，搭一条通路连接起点和终点<br>
+✋ 每个方块必须<b>完全在棋盘内</b>，且路径<b>连通</b>才算有效<br>
+⏱️ 每关限时 <b>30秒</b>，时间用完或无法通关即失败<br>
+🔄 点<b>撤销</b>移除最后放置的方块，点<b>重置</b>清空全部<br>
+💡 提示：方块可以<b>旋转</b>（点击卡片），找最佳角度放置</p>
 
         <button id="btnStart">开始游戏 →</button>
 
@@ -1881,7 +1872,13 @@ function showFail() {
 
         <h2>⏰ 时间到!</h2>
 
-        <p>第 ${currentLevel + 1} 关「${lvName}」失败</p>
+        <p>第 ${currentLevel + 1
+
+    // 失败特效：红色粒子
+    spawnFailParticles();
+    // 屏幕震动（移动端）
+    if(navigator.vibrate) navigator.vibrate([200, 100, 200]);
+} 关「${lvName}」失败</p>
 
         <p style="font-size:12px;color:#666">用时 ${TIMER_SECONDS}秒，加油！</p>
 
@@ -2150,6 +2147,24 @@ loadLevel(0);
 
 loop();
 
+
+
+// ---- 失败粒子特效 ----
+function spawnFailParticles() {
+    const colors = ['#ff4444','#ff6b6b','#ff8c8c','#cc0000'];
+    for (let i = 0; i < 40; i++) {
+        particles.push({
+            x: W / 2 + (Math.random() - 0.5) * W * 0.5,
+            y: H / 2 + (Math.random() - 0.5) * H * 0.3,
+            vx: (Math.random() - 0.5) * 4,
+            vy: (Math.random() - 0.5) * 4,
+            r: Math.random() * 3 + 1,
+            a: 0.8,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            life: 60
+        });
+    }
+}
 </script>
 
 </body>
