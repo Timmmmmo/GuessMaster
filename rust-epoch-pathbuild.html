@@ -1318,6 +1318,7 @@ function loadSave() {
 
 
 function loadLevel(idx) {
+    startTransition('第 ' + (idx + 1) + ' 关', () => {
 
     currentLevel = Math.max(0, Math.min(idx, LEVELS.length - 1));
 
@@ -2100,6 +2101,7 @@ function loop() {
     drawConfetti();
 
     draw();
+    drawTransition();
 
     requestAnimationFrame(loop);
 
