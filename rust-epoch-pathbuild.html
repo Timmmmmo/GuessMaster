@@ -124,6 +124,16 @@
 <div id="hintBar" class="hint-bar"></div>
 
 <script>
+        // 鼠标追踪
+        const _mp = [0,0];
+        if(typeof window!=='undefined'){
+            window._mousePos = _mp;
+            document.querySelector('canvas').addEventListener('mousemove', e=>{
+                const r = e.target.getBoundingClientRect();
+                _mp[0]=e.clientX-r.left; _mp[1]=e.clientY-r.top;
+            });
+        }
+
 
 const canvas = document.getElementById('c');
 
@@ -948,6 +958,10 @@ function drawCandidates() {
 
             const cx = cardX, cy = cardY;
 
+            // 悬停检测
+            const isHovered = _mp[0] >= cx && _mp[0] <= cx+cw && _mp[1] >= cy && _mp[1] <= cy+ch;
+
+
 
 
             // 3D卡片背景渐变
@@ -979,6 +993,19 @@ function drawCandidates() {
             ctx.lineWidth = 1.5;
             roundRect(ctx, cx, cy, cw, ch, 6);
             ctx.stroke();
+
+            // 悬停发光效果
+            if(isHovered && !cand.used){
+                ctx.save();
+                ctx.shadowColor="rgba(255,215,0,0.9)";
+                ctx.shadowBlur=25;
+                ctx.strokeStyle="rgba(255,215,0,1)";
+                ctx.lineWidth=3;
+                roundRect(ctx, cx, cy, cw, ch, 6);
+                ctx.stroke();
+                ctx.restore();
+            }
+
 
 
 
