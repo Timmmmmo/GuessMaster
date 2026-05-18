@@ -1,230 +1,600 @@
 <!DOCTYPE html>
+
 <html lang="zh-CN">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>末日锈纪:筑路求生 V3.3</title>
+
+    <title>末日锈纪:筑路求生 V3.6</title>
+
     <style>
+
+        /* 动态渐变背景 */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, 
+                rgba(10,10,30,0.97) 0%, 
+                rgba(20,15,40,0.97) 25%, 
+                rgba(15,20,35,0.97) 50%, 
+                rgba(25,15,30,0.97) 75%, 
+                rgba(10,10,30,0.97) 100%);
+            background-size: 400% 400%;
+            animation: gradShift 15s ease infinite;
+            z-index: -1;
+        }
+        @keyframes gradShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
         *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
         html,body{width:100%;height:100%;overflow:hidden;background:#0a0a12}
+
         body{overflow:hidden;user-select:none;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif}
+
         #c{display:block;touch-action:none;width:100%!important;height:100%!important}
-        .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
-        .modal-box{background:#1a1a2e;border-radius:20px;padding:28px 32px;text-align:center;width:100%;max-width:300px;border:1px solid rgba(255,215,0,.3)}
+
+        .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;animation:fadeIn .3s ease}
+
+        .modal-box{background:rgba(26,26,46,0.85);border-radius:24px;padding:32px 36px;text-align:center;width:100%;max-width:320px;border:1px solid rgba(255,215,0,.4);box-shadow:0 0 40px rgba(255,215,0,.15), inset 0 1px 0 rgba(255,255,255,.1);animation:modalSlideUp .4s ease-out}
+
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes modalSlideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+
         .modal-box.fail{border-color:rgba(255,68,68,.3)}
-        .modal-box h2{color:#ffd700;font-size:20px;margin-bottom:8px}
+
+        .modal-box h2{color:#ffd700;font-size:22px;margin-bottom:10px;text-shadow:0 0 20px rgba(255,215,0,.5);letter-spacing:1px}
+
         .modal-box.fail h2{color:#ff6b6b}
-        .modal-box p{color:#8a8a9a;font-size:14px;margin-bottom:18px;line-height:1.5}
-        .modal-box button{width:100%;padding:14px 24px;border:none;border-radius:12px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:4px}
-        .btn-next{background:#ffd700;color:#000}
-        .btn-retry{background:#ff4444;color:#fff}
-        .cd-overlay{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:200;pointer-events:none;background:rgba(0,0,0,.6)}
-        .cd-num{font-size:clamp(60px,20vw,90px);font-weight:900;color:#ffd700;text-shadow:0 0 40px rgba(255,215,0,.7);animation:cdPop .6s ease-out forwards;user-select:none}
-        .cd-go{font-size:clamp(48px,16vw,72px);font-weight:900;color:#81c784;text-shadow:0 0 40px rgba(129,199,132,.7);animation:cdPop .6s ease-out forwards}
+
+        .modal-box p{color:#b0b0c0;font-size:15px;margin-bottom:20px;line-height:1.6}
+
+        .modal-box button{width:100%;padding:16px 24px;border:none;border-radius:14px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:6px;transition:all .2s;letter-spacing:.5px}
+
+        .btn-next{background:linear-gradient(135deg,#ffd700,#ffaa00);color:#000;box-shadow:0 4px 20px rgba(255,215,0,.4)}
+        .btn-next:hover{transform:translateY(-2px);box-shadow:0 6px 25px rgba(255,215,0,.5)}
+        .btn-next:active{transform:translateY(0)}
+
+        .btn-retry{background:linear-gradient(135deg,#ff4444,#cc0000);color:#fff;box-shadow:0 4px 20px rgba(255,68,68,.4)}
+        .btn-retry:hover{transform:translateY(-2px);box-shadow:0 6px 25px rgba(255,68,68,.5)}
+
+        .cd-overlay{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:200;pointer-events:none;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+
+        .cd-num{font-size:clamp(60px,20vw,90px);font-weight:900;color:#ffd700;text-shadow:0 0 60px rgba(255,215,0,.8),0 0 120px rgba(255,215,0,.4);animation:cdPop .6s ease-out forwards,cdPulse 1s ease-in-out infinite;user-select:none}
+
+        .cd-go{font-size:clamp(48px,16vw,72px);font-weight:900;color:#81c784;text-shadow:0 0 60px rgba(129,199,132,.8),0 0 120px rgba(129,199,132,.4);animation:cdPop .6s ease-out forwards,cdPulse 1s ease-in-out infinite}
+
+        @keyframes cdPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+
         @keyframes cdPop{0%{transform:scale(.4);opacity:0}50%{transform:scale(1.15);opacity:.9}100%{transform:scale(1);opacity:1}}
-        .hint-bar{position:fixed;bottom:0;left:0;width:100%;padding:6px 16px;text-align:center;font-size:12px;z-index:50;pointer-events:none;transition:background .3s}
-        .sound-btn{position:fixed;top:12px;right:12px;width:36px;height:36px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,215,0,.2);border-radius:8px;z-index:50;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:background .2s}
+
+        .hint-bar{position:fixed;bottom:0;left:0;width:100%;padding:10px 16px;text-align:center;font-size:13px;z-index:50;pointer-events:none;transition:all .3s;font-weight:500;letter-spacing:.3px}
+
+        .sound-btn{position:fixed;top:calc(12px + env(safe-area-inset-top, 0px));right:12px;width:40px;height:40px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,215,0,.25);border-radius:12px;z-index:50;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:all .2s;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+        .sound-btn:hover{background:rgba(255,255,255,0.15);transform:scale(1.05)}
+
         .sound-btn:hover{background:rgba(255,255,255,0.12)}
-    </style>
+
+
+        /* 按钮动效 */
+        .modal button {
+            transition: all 0.2s cubic-bezier(.4,0,.2,1) !important;
+            position: relative;
+            overflow: hidden;
+        }
+        .modal button:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(255,215,0,0.4) !important;
+        }
+        .modal button:active {
+            transform: translateY(0) scale(0.97) !important;
+            box-shadow: 0 2px 8px rgba(255,215,0,0.3) !important;
+        }
+        /* 波纹效果 */
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.5);
+            transform: scale(0);
+            animation: ripple-anim 0.6s linear;
+            pointer-events: none;
+        }
+        @keyframes ripple-anim {
+            to { transform: scale(4); opacity: 0; }
+        }
+        </style>
+
 </head>
+
 <body>
+
 <canvas id="c"></canvas>
+
 <button class="sound-btn" id="soundBtn">🔊</button>
+
 <div id="cd" class="cd-overlay" style="display:none"><span id="cdText" class="cd-num">3</span></div>
+
 <div id="hintBar" class="hint-bar"></div>
+
 <script>
+
 const canvas = document.getElementById('c');
+
 const ctx = canvas.getContext('2d');
 
+
+
 // ---- Constants ----
+
 const PIECE_DEFS = {
+
     I: { cells:[[0,-1],[0,0],[0,1],[0,2]], color:'#4fc3f7' },
+
     L: { cells:[[0,-1],[0,0],[0,1],[1,1]], color:'#81c784' },
+
     J: { cells:[[0,-1],[0,0],[0,1],[-1,1]], color:'#ffb74d' },
+
     T: { cells:[[0,-1],[0,0],[0,1],[1,0]], color:'#e040fb' },
+
     S: { cells:[[0,0],[1,0],[0,1],[-1,1]], color:'#ff6b6b' },
+
     Z: { cells:[[0,0],[-1,0],[0,1],[1,1]], color:'#ffd700' },
+
     O: { cells:[[0,0],[1,0],[0,1],[1,1]], color:'#ff8c00' },
+
     I3:{ cells:[[0,-1],[0,0],[0,1]], color:'#64b5f6' },
+
     L3:{ cells:[[0,0],[0,1],[1,1]], color:'#a5d6a7' },
+
     DOT:{cells:[[0,0]], color:'#90a4ae' },
+
     I2:{ cells:[[0,0],[0,1]], color:'#80cbc4' },
+
 };
+
 const LEVELS = [
+
     { grid:5, start:[2,0], end:[2,4], pieces:['I','I','I3','L3','DOT'], obstacles:[] },
+
     { grid:5, start:[0,0], end:[4,4], pieces:['I','L','I3','L3','DOT','DOT'], obstacles:[] },
+
     { grid:6, start:[0,0], end:[5,5], pieces:['I','I','L','T','I3','L3','DOT'], obstacles:[[2,2],[3,3]] },
+
     { grid:6, start:[1,0], end:[4,5], pieces:['I','I','L','J','T','I3','I3','L3','DOT'], obstacles:[[2,2],[3,3],[0,3]] },
+
     { grid:7, start:[0,0], end:[6,6], pieces:['I','I','L','J','T','S','Z','I3','DOT','DOT'], obstacles:[[2,2],[3,3],[4,4],[1,4]] },
+
     { grid:7, start:[3,0], end:[3,6], pieces:['I','I','I','L','J','I3','I3','L3','DOT'], obstacles:[[1,2],[5,2],[1,4],[5,4],[3,3]] },
+
     { grid:8, start:[0,0], end:[7,7], pieces:['I','I','I','L','J','T','S','Z','O','I3','I3','L3','DOT'], obstacles:[[2,2],[2,5],[5,2],[5,5],[3,4],[4,3]] },
+
     { grid:8, start:[0,7], end:[7,0], pieces:['I','I','L','L','J','T','T','S','Z','I3','L3','L3','DOT','DOT'], obstacles:[[3,3],[4,4],[2,5],[5,2],[1,3],[6,4]] },
+
     { grid:9, start:[0,0], end:[8,8], pieces:['I','I','I','I','L','J','T','S','Z','O','I3','I3','L3','DOT','DOT'], obstacles:[[3,3],[4,4],[5,5],[2,6],[6,2],[1,4],[7,4]] },
+
     { grid:10, start:[0,0], end:[9,9], pieces:['I','I','I','I','L','L','J','J','T','T','S','Z','O','I3','I3','L3','L3','DOT'], obstacles:[[3,3],[4,4],[5,5],[6,6],[2,7],[7,2],[1,5],[8,4]] },
+
 ];
+
 const LEVEL_NAMES = ['废墟起步','对角求生','暗坑初现','迂回前进','绝地逢生','中路突围','四方围困','逆流而上','深渊通道','终极筑路'];
+
 const TIMER_SECONDS = 20;
 
+
+
 // ---- Audio Engine ----
+
 let audioCtx = null;
+
 let soundEnabled = true;
+
 const soundBtn = document.getElementById('soundBtn');
 
+
+
 function ensureAudio() {
+
     if (!audioCtx) {
+
         try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+
     }
+
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
 }
 
+
+
 function playTone(freq, type, duration, vol) {
+
     if (!soundEnabled || !audioCtx) return;
+
     try {
+
         const osc = audioCtx.createOscillator();
+
         const gain = audioCtx.createGain();
+
         osc.connect(gain);
+
         gain.connect(audioCtx.destination);
+
         osc.type = type || 'sine';
+
         osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
         gain.gain.setValueAtTime(vol || 0.18, audioCtx.currentTime);
+
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
         osc.start(audioCtx.currentTime);
+
         osc.stop(audioCtx.currentTime + duration);
+
     } catch(e) {}
+
+}
+
+
+
+
+// 按钮波纹效果
+function createRipple(e) {
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    const size = Math.max(rect.width, rect.height);
+    ripple.style.width = ripple.style.height = size + 'px';
+    ripple.style.left = (e.clientX - rect.left - size/2) + 'px';
+    ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
+    btn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 600);
 }
 
 const SFX = {
-    place: () => { playTone(600, 'sine', 0.08, 0.15); setTimeout(() => playTone(900, 'sine', 0.06, 0.12), 40); },
+    place: () => {
+        playTone(600, 'sine', 0.08, 0.15);
+        setTimeout(() => playTone(900, 'sine', 0.06, 0.12), 40);
+        setTimeout(() => playTone(1200, 'sine', 0.04, 0.08), 80);
+    },
     win: () => {
-        [523,659,784,1047].forEach((f,i) => setTimeout(() => playTone(f,'sine',0.18,0.14), i * 80));
+        [523, 659, 784, 1047, 1319].forEach((f,i) => setTimeout(() => playTone(f,'sine',0.22,0.13), i * 100));
+        setTimeout(() => { playTone(523, 'sine', 0.4, 0.1); playTone(659, 'sine', 0.4, 0.1); }, 520);
     },
     fail: () => {
         playTone(220, 'sawtooth', 0.15, 0.12);
         setTimeout(() => playTone(180, 'sawtooth', 0.2, 0.1), 120);
+        setTimeout(() => playTone(150, 'sawtooth', 0.3, 0.08), 250);
     },
-    tick: () => playTone(440, 'square', 0.05, 0.08),
-    go: () => { playTone(880, 'sine', 0.1, 0.15); setTimeout(() => playTone(1100, 'sine', 0.15, 0.12), 60); },
-    undo: () => { playTone(400, 'sine', 0.06, 0.1); setTimeout(() => playTone(300, 'sine', 0.05, 0.08), 40); },
-    reset: () => { playTone(200, 'sine', 0.1, 0.1); setTimeout(() => playTone(250, 'sine', 0.08, 0.08), 80); },
+    tick: () => playTone(880, 'sine', 0.06, 0.1),
+    go: () => {
+        playTone(880, 'sine', 0.1, 0.15);
+        setTimeout(() => playTone(1100, 'sine', 0.15, 0.12), 60);
+        setTimeout(() => playTone(1320, 'sine', 0.2, 0.1), 120);
+    },
+    undo: () => {
+        playTone(400, 'sine', 0.06, 0.1);
+        setTimeout(() => playTone(300, 'sine', 0.05, 0.08), 40);
+        setTimeout(() => playTone(250, 'sine', 0.04, 0.06), 80);
+    },
+    reset: () => {
+        playTone(200, 'sine', 0.1, 0.1);
+        setTimeout(() => playTone(250, 'sine', 0.08, 0.08), 80);
+        setTimeout(() => playTone(200, 'sine', 0.06, 0.06), 150);
+    },
 };
 
+
+
 soundBtn.addEventListener('click', () => {
+
     soundEnabled = !soundEnabled;
+
     soundBtn.textContent = soundEnabled ? '🔊' : '🔇';
+
     ensureAudio();
+
     if (soundEnabled) playTone(880, 'sine', 0.1, 0.12);
+
 }, { passive: true });
 
+
+
 // ---- State ----
+
 let W, H, dpr;
+
 let gridSize, cellSize, gridOffsetX, gridOffsetY;
+
 let gridData, startPos, endPos, candidates, placedHistory;
+
 let currentLevel = 0;
+
 let won = false, failed = false;
+
 let timeLeft = TIMER_SECONDS, timerInterval = null;
 
+
+
 // Drag
+
 let dragging = false, dragIdx = -1;
+
 let previewAnchor = null, previewValid = false;
+
 let lastPointerX = 0, lastPointerY = 0;
 
+
+
 // Particles
+
 let particles = [];
 
+// 鼠标位置追踪（用于卡片悬浮效果）
+window._mousePos = [0, 0];
+canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    window._mousePos = [e.clientX - rect.left, e.clientY - rect.top];
+});
+canvas.addEventListener('mouseleave', () => { window._mousePos = null; });
+let confetti = [];
+let celebrating = false;
+
+
+
+
 // Countdown
+
 let countdownActive = false;
 
+
+
 // Flash effects
+
 let flashCells = [];
 
+let winPath = null;
+
+
+
 // Hint system
+
 let hintText = '';
+
 let hintColor = '#8a8a9a';
+
 let hintTimer = null;
 
+
+
 // Layout zones
+
 let zone = {};
+
 let firstTime = true;
+let tutorialShowing = false;
+
+
 
 // ---- Resize ----
+
 function resize() {
+
     dpr = window.devicePixelRatio || 1;
+
     W = Math.max(1, window.innerWidth);
+
     H = Math.max(1, window.innerHeight);
+
     canvas.width = W * dpr;
+
     canvas.height = H * dpr;
+
     canvas.style.width = W + 'px';
+
     canvas.style.height = H + 'px';
+
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
     if (gridSize) { calcLayout(); draw(); }
+
 }
+
 window.addEventListener('resize', resize);
 
+
+
 // ---- Layout: fully dynamic, never overlaps ----
+
 function calcLayout() {
+
     if (!gridSize || !W || !H) return;
+
     const safeTop = (window.safeAreaInsets ? window.safeAreaInsets.top : 0);
+
     const safeBot = (window.safeAreaInsets ? window.safeAreaInsets.bottom : 0);
+
     const MARGIN = 12;
+
     const TOP_H = 54;
+
     const BTN_H = 48;
+
     const BTN_GAP = 10;
+
     const HINT_H = 28;
+
     const BTN_AREA_H = BTN_H + 12;
+
     const HEADER_H = 18; // "拖动下方方块..." header above cards
 
+
+
     const availableH = H - safeTop - safeBot;
+
     const bottomH = HINT_H + BTN_AREA_H + 24;
+
     const availForTop = availableH - bottomH;
 
+
+
     // Grid gets ~50% of remaining space (minimum 40%)
+
     const gridAreaH = Math.max(availForTop * 0.42, 80);
+
     const cardAreaH = availForTop - gridAreaH - 16;
 
+
+
     // cellSize based on grid area
+
     const maxW = W - MARGIN * 2;
+
     cellSize = Math.max(10, Math.min(Math.floor(maxW / gridSize), Math.floor(gridAreaH / gridSize)));
 
+
+
     const gridPx = cellSize * gridSize;
+
     const gridTop = safeTop + TOP_H + 8;
+
     gridOffsetX = Math.floor((W - gridPx) / 2);
+
     gridOffsetY = gridTop;
+
     const gridBottom = gridTop + gridPx;
 
+
+
     const cardTop = gridBottom + 16;
+
     const cardBottom = cardTop + Math.max(cardAreaH, 60);
+
     const btnTop = cardBottom + 4;
+
     const btnBottom = btnTop + BTN_AREA_H;
+
     const hintY = btnBottom + HINT_H;
 
+
+
     zone = { safeTop, safeBot, TOP_H, MARGIN, gridTop, gridPx, gridBottom,
+
              cardTop, cardBottom, btnTop, btnBottom, hintY, BTN_H, BTN_GAP,
-             HEADER_H, availableH, cardAreaH, gridAreaH };
+
+             HEADER_H, HINT_H, availableH, cardAreaH, gridAreaH };
+
 }
 
+
+
 // ---- Particles ----
+
+
+
+// 触屏震动反馈（移动端）
+function vibrate(ms) {
+    if (navigator.vibrate) {
+        navigator.vibrate(ms || 20);
+    }
+}
+
+// ---- 胜利撒花系统 ----
+function spawnConfetti() {
+    confetti = [];
+    celebrating = true;
+    const colors = ['#ffd700','#ff6b6b','#4fc3f7','#81c784','#e040fb','#ff8c00','#64b5f6','#ffb74d'];
+    for (let i = 0; i < 80; i++) {
+        confetti.push({
+            x: Math.random() * W,
+            y: -Math.random() * H * 0.5,
+            vx: (Math.random() - 0.5) * 3,
+            vy: Math.random() * 2 + 1.5,
+            w: Math.random() * 8 + 4,
+            h: Math.random() * 6 + 3,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            rot: Math.random() * Math.PI * 2,
+            rotV: (Math.random() - 0.5) * 0.15,
+            a: 1
+        });
+    }
+}
+
+function updateConfetti() {
+    if (!celebrating) return;
+    for (let i = confetti.length - 1; i >= 0; i--) {
+        const p = confetti[i];
+        p.x += p.vx;
+        p.vy += 0.04; // 重力
+        p.y += p.vy;
+        p.rot += p.rotV;
+        if (p.y > H + 20) confetti.splice(i, 1);
+    }
+    if (confetti.length === 0) celebrating = false;
+}
+
+function drawConfetti() {
+    if (!celebrating) return;
+    ctx.save();
+    for (const p of confetti) {
+        ctx.globalAlpha = p.a;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.resetTransform();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+}
+
+
 function initParticles() {
     particles = [];
-    for (let i = 0; i < 30; i++) particles.push({
+    const count = Math.max(50, Math.floor(((W || 320) * (H || 568)) / 6000));
+    for (let i = 0; i < count; i++) particles.push({
         x: Math.random() * (W || 320),
         y: Math.random() * (H || 568),
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
-        r: Math.random() * 2 + 0.5,
-        a: Math.random() * 0.18 + 0.02,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        r: Math.random() * 3 + 0.5,
+        a: Math.random() * 0.3 + 0.03,
+        hue: Math.random() * 60 + 30,
+        pulse: Math.random() * Math.PI * 2,
+        type: Math.random() < 0.3 ? 'ring' : 'dot'
     });
 }
+
 function updateParticles() {
+    const now = Date.now() * 0.001;
     for (const p of particles) {
         p.x += p.vx; p.y += p.vy;
+        p.pulse += 0.03;
         if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
         if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
     }
 }
+
 function drawParticles() {
     for (const p of particles) {
-        ctx.globalAlpha = p.a;
-        ctx.fillStyle = '#ffd700';
+        const glow = 0.5 + 0.5 * Math.sin(p.pulse);
+        const a = p.a * (0.5 + 0.5 * glow);
+        ctx.globalAlpha = a * 0.25;
+        ctx.fillStyle = "hsl(" + p.hue + ", 100%, 70%)";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = a;
+        ctx.fillStyle = "hsl(" + p.hue + ", 100%, 88%)";
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fill();
@@ -232,95 +602,170 @@ function drawParticles() {
     ctx.globalAlpha = 1;
 }
 
+
+
 // ---- Draw ----
+
 function draw() {
+    // 动态背景
+    const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+    const t = Date.now() * 0.0003;
+    bgGrad.addColorStop(0, `hsl(${200 + Math.sin(t)*20}, 60%, 8%)`);
+    bgGrad.addColorStop(0.5, `hsl(${220 + Math.cos(t*0.7)*15}, 50%, 10%)`);
+    bgGrad.addColorStop(1, `hsl(${190 + Math.sin(t*1.3)*25}, 55%, 7%)`);
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, W, H);
+
+
     ctx.clearRect(0, 0, W, H);
+
     drawParticles();
+
     drawTopBar();
+
     drawGrid();
+
+    if (winPath && won) drawWinPath();
     drawCandidates();
+
     drawButtons();
+
     drawHint();
+
     drawFlash();
+
     if (dragging) drawDragPiece();
+
     drawPreview();
+
 }
 
+
+
 function drawTopBar() {
+
     const z = zone;
+
     ctx.fillStyle = 'rgba(255,255,255,0.04)';
+
     roundRect(ctx, z.MARGIN, z.safeTop + 6, W - z.MARGIN * 2, z.TOP_H, 14);
+
     ctx.fill();
+
     ctx.font = 'bold 15px sans-serif';
+
     ctx.fillStyle = '#fff';
+
     ctx.textAlign = 'left';
+
     ctx.fillText('🛤️  第 ' + (currentLevel + 1) + ' 关', z.MARGIN + 24, z.safeTop + 28);
+
     ctx.font = '11px sans-serif';
+
     ctx.fillStyle = '#6a6a8a';
+
     ctx.fillText(LEVEL_NAMES[currentLevel] || '', z.MARGIN + 24, z.safeTop + 46);
+
     const urgent = timeLeft <= 5;
+
     ctx.font = 'bold ' + (urgent ? '17' : '15') + 'px sans-serif';
+
     ctx.fillStyle = urgent ? '#ff4444' : '#ffd700';
+
     ctx.textAlign = 'right';
+
     ctx.fillText('⏱ ' + timeLeft + 's', W - z.MARGIN, z.safeTop + 30);
+
     const unused = candidates ? candidates.filter(c => !c.used).length : 0;
+
     ctx.font = '12px sans-serif';
+
     ctx.fillStyle = '#6a6a8a';
+
     ctx.fillText('剩余 ' + unused + ' 块', W - z.MARGIN, z.safeTop + 48);
+
     ctx.textAlign = 'left';
+
 }
+
+
 
 function drawGrid() {
     if (!cellSize || !gridSize) return;
     const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY, gs = gridSize;
+    // 网格外发光背景
     ctx.fillStyle = '#0d0d1a';
-    roundRect(ctx, ox - 4, oy - 4, cs * gs + 8, cs * gs + 8, 10);
+    roundRect(ctx, ox - 6, oy - 6, cs * gs + 12, cs * gs + 12, 12);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,215,0,0.12)';
-    ctx.lineWidth = 1;
-    roundRect(ctx, ox - 4, oy - 4, cs * gs + 8, cs * gs + 8, 10);
+    ctx.shadowColor = 'rgba(255,215,0,0.3)';
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = 'rgba(255,215,0,0.3)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, ox - 6, oy - 6, cs * gs + 12, cs * gs + 12, 12);
     ctx.stroke();
+    ctx.shadowBlur = 0;
+
     for (let r = 0; r < gs; r++) {
         for (let c = 0; c < gs; c++) {
             const x = ox + c * cs, y = oy + r * cs;
-            ctx.strokeStyle = 'rgba(22,22,40,0.6)';
+            ctx.strokeStyle = 'rgba(40,40,65,0.7)';
             ctx.lineWidth = 0.5;
             ctx.strokeRect(x, y, cs, cs);
+
             const val = gridData[r][c];
             if (val === 2) {
-                ctx.fillStyle = 'rgba(60,20,20,0.85)';
+                ctx.fillStyle = 'rgba(80,20,20,0.9)';
                 ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
-                ctx.strokeStyle = 'rgba(120,40,40,0.7)';
-                ctx.lineWidth = Math.max(1, cs * 0.1);
+                ctx.shadowColor = 'rgba(180,50,50,0.6)';
+                ctx.shadowBlur = 8;
+                ctx.strokeStyle = 'rgba(180,50,50,0.8)';
+                ctx.lineWidth = Math.max(1.5, cs * 0.12);
                 ctx.beginPath();
-                ctx.moveTo(x + cs * 0.22, y + cs * 0.22);
-                ctx.lineTo(x + cs * 0.78, y + cs * 0.78);
-                ctx.moveTo(x + cs * 0.78, y + cs * 0.22);
-                ctx.lineTo(x + cs * 0.22, y + cs * 0.78);
+                ctx.moveTo(x + cs * 0.2, y + cs * 0.2);
+                ctx.lineTo(x + cs * 0.8, y + cs * 0.8);
+                ctx.moveTo(x + cs * 0.8, y + cs * 0.2);
+                ctx.lineTo(x + cs * 0.2, y + cs * 0.8);
                 ctx.stroke();
+                ctx.shadowBlur = 0;
             } else if (val === 1) {
-                ctx.fillStyle = 'rgba(80,160,90,0.55)';
+                ctx.fillStyle = 'rgba(80,180,100,0.5)';
                 ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
-                ctx.strokeStyle = 'rgba(129,199,132,0.35)';
+                ctx.shadowColor = 'rgba(129,199,132,0.5)';
+                ctx.shadowBlur = 8;
+                ctx.strokeStyle = 'rgba(129,199,132,0.5)';
                 ctx.lineWidth = 1;
                 ctx.strokeRect(x + 2, y + 2, cs - 4, cs - 4);
+                ctx.shadowBlur = 0;
             }
         }
     }
+
     drawMarker(startPos, '#29b6f6', '起');
     drawMarker(endPos, '#ef5350', '终');
 }
+
+
 
 function drawMarker(pos, color, labelCN) {
     if (!cellSize || !pos) return;
     const cs = cellSize;
     const x = gridOffsetX + pos[1] * cs, y = gridOffsetY + pos[0] * cs;
-    const labelSize = Math.max(8, Math.min(cs * 0.38, 13));
-    ctx.fillStyle = color + '33';
+    const labelSize = Math.max(10, Math.min(cs * 0.42, 16));
+    // 发光背景
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = color + '25';
     ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
-    ctx.strokeStyle = color + 'aa';
-    ctx.lineWidth = Math.max(1.5, cs * 0.1);
+    ctx.strokeStyle = color + 'cc';
+    ctx.lineWidth = Math.max(2, cs * 0.12);
     ctx.strokeRect(x + 1, y + 1, cs - 2, cs - 2);
+    ctx.shadowBlur = 0;
+    // 呼吸发光动画
+    const breathe = 0.6 + 0.4 * Math.sin(Date.now() * 0.003);
+    ctx.globalAlpha = breathe * 0.4;
+    ctx.fillStyle = color + '18';
+    ctx.fillRect(x - 2, y - 2, cs + 4, cs + 4);
+    ctx.globalAlpha = 1;
     ctx.font = 'bold ' + labelSize + 'px sans-serif';
     ctx.fillStyle = color;
     ctx.textAlign = 'center';
@@ -330,622 +775,1354 @@ function drawMarker(pos, color, labelCN) {
     ctx.textBaseline = 'alphabetic';
 }
 
+
+
+function drawWinPath() {
+    if (!winPath || !cellSize) return;
+    const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY;
+    const now = Date.now();
+    const pulse = 0.5 + 0.5 * Math.sin(now * 0.005);
+    for (const key of winPath) {
+        const r = Math.floor(key / gridSize), c = key % gridSize;
+        ctx.shadowColor = 'rgba(129,199,132,0.8)';
+        ctx.shadowBlur = 8 + pulse * 6;
+        ctx.fillStyle = 'rgba(129,199,132,' + (0.35 + pulse * 0.45) + ')';
+        ctx.fillRect(ox + c * cs + 1, oy + r * cs + 1, cs - 2, cs - 2);
+        ctx.shadowBlur = 0;
+        // 内部高光
+        ctx.fillStyle = 'rgba(255,255,255,' + (0.04 + pulse * 0.12) + ')';
+        ctx.fillRect(ox + c * cs + 3, oy + r * cs + 3, cs - 6, cs - 6);
+    }
+}
+
 function drawCandidates() {
-    const z = zone;
-    if (!z || !candidates) return;
-    const pcs = Math.max(12, Math.min(cellSize, 26));
-    const totalCards = candidates.length;
-    const GAP = 4, PAD = 5, CARD_PAD = 8;
-    const maxRowW = W - 16;
-    const cardTop = z.cardTop;
-    const availH = z.cardBottom - cardTop;
-
-    // Compute card sizes
-    const cardSizes = candidates.map(cand => {
-        let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-        for (const [r, c] of cand.cells) {
-            minR = Math.min(minR, r); maxR = Math.max(maxR, r);
-            minC = Math.min(minC, c); maxC = Math.max(maxC, c);
-        }
-        return { w: (maxC - minC + 1) * pcs + PAD * 2,
-                 h: (maxR - minR + 1) * pcs + PAD * 2,
-                 minR, maxR, minC, maxC };
-    });
-
-    // Wrap into rows
-    const rows = [];
-    let curRow = [], curW = 0;
-    for (let i = 0; i < totalCards; i++) {
-        const cw = cardSizes[i].w;
-        if (curW + cw + (curRow.length ? GAP : 0) > maxRowW && curRow.length > 0) {
-            rows.push([...curRow]); curRow = [i]; curW = cw;
-        } else {
-            curRow.push(i); curW += cw + (curRow.length > 1 ? GAP : 0);
+    // 悬浮动效：检测鼠标悬停的卡片索引
+    let hoverCardIdx = -1;
+    if (window._mousePos && window._cardRects) {
+        const [mx, my] = window._mousePos;
+        for (const r of window._cardRects) {
+            if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
+                hoverCardIdx = r.idx; break;
+            }
         }
     }
+
+    const z = zone;
+
+
+    if (!z || !candidates) return;
+
+    const pcs = Math.max(12, Math.min(cellSize, 26));
+
+    const totalCards = candidates.length;
+
+    const GAP = 4, PAD = 5, CARD_PAD = 8;
+
+    const maxRowW = W - 16;
+
+    const cardTop = z.cardTop;
+
+    const availH = Math.max(60, H - z.cardTop - (z.BTN_H||48) - 12 - (z.HINT_H||28) - (z.safeBot||0) - 8);
+
+
+
+    // Compute card sizes
+
+    const cardSizes = candidates.map(cand => {
+
+        let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+
+        for (const [r, c] of cand.cells) {
+
+            minR = Math.min(minR, r); maxR = Math.max(maxR, r);
+
+            minC = Math.min(minC, c); maxC = Math.max(maxC, c);
+
+        }
+
+        return { w: (maxC - minC + 1) * pcs + PAD * 2,
+
+                 h: (maxR - minR + 1) * pcs + PAD * 2,
+
+                 minR, maxR, minC, maxC };
+
+    });
+
+
+
+    // Wrap into rows
+
+    const rows = [];
+
+    let curRow = [], curW = 0;
+
+    for (let i = 0; i < totalCards; i++) {
+
+        const cw = cardSizes[i].w;
+
+        if (curW + cw + (curRow.length ? GAP : 0) > maxRowW && curRow.length > 0) {
+
+            rows.push([...curRow]); curRow = [i]; curW = cw;
+
+        } else {
+
+            curRow.push(i); curW += cw + (curRow.length > 1 ? GAP : 0);
+
+        }
+
+    }
+
     if (curRow.length > 0) rows.push(curRow);
 
+
+
     const cardH = Math.max(...cardSizes.map(s => s.h)) + CARD_PAD * 2;
+
     const headerH = z.HEADER_H;
+
     const totalCardArea = headerH + rows.length * cardH;
 
+
+
     // Scale down card size if needed to fit in available height
+
     const scale = totalCardArea > availH ? Math.sqrt(availH / totalCardArea) : 1;
+
     const scaledPcs = Math.max(10, Math.floor(pcs * scale));
+
     const scaledCardH = Math.max(...cardSizes.map(s => {
+
         const rh = (s.maxR - s.minR + 1) * scaledPcs + PAD * 2;
+
         return Math.max(s.h, rh + CARD_PAD * 2);
+
     }));
+
     const scaledTotalCardArea = headerH + rows.length * scaledCardH;
 
+
+
     // Header
+
     const unused = candidates.filter(c => !c.used).length;
+
     ctx.font = '11px sans-serif';
+
     ctx.fillStyle = '#6a6a8a';
+
     ctx.textAlign = 'center';
+
     ctx.fillText(unused > 0 ? '拖动下方方块到棋盘上（还剩 ' + unused + ' 块）' : '已用完全部方块！', W / 2, cardTop + 9);
+
     ctx.textAlign = 'left';
 
+
+
     window._cardRects = [];
+
     let cardY = cardTop + headerH;
 
+
+
     for (const row of rows) {
+
         const rowSizes = row.map(i => cardSizes[i]);
+
         const rowW = rowSizes.reduce((s, c, j) => s + c.w + (j > 0 ? GAP : 0), 0);
+
         let cardX = Math.floor((W - rowW) / 2);
 
+
+
         for (const ci of row) {
+
             const cand = candidates[ci];
+
             const sz = rowSizes[row.indexOf(ci)] || cardSizes[ci];
+
             const innerH = scaledCardH - CARD_PAD * 2;
+
             const innerW = sz.w - PAD * 2;
+
             const cw = sz.w, ch = scaledCardH;
+
             const cx = cardX, cy = cardY;
 
-            ctx.fillStyle = cand.used ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)';
+
+
+            // 3D卡片背景渐变
+            if (!cand.used) {
+                const grad = ctx.createLinearGradient(cx, cy, cx, cy + ch);
+                grad.addColorStop(0, 'rgba(255,255,255,0.12)');
+                grad.addColorStop(0.5, 'rgba(255,255,255,0.04)');
+                grad.addColorStop(1, 'rgba(0,0,0,0.08)');
+                ctx.fillStyle = grad;
+            } else {
+                ctx.fillStyle = 'rgba(255,255,255,0.02)';
+            }
             roundRect(ctx, cx, cy, cw, ch, 6);
             ctx.fill();
-            ctx.strokeStyle = cand.used ? 'rgba(51,51,51,0.15)' : 'rgba(255,215,0,0.2)';
+
+            // 内阴影高光（顶部）
+            if (!cand.used) {
+                ctx.fillStyle = 'rgba(255,255,255,0.08)';
+                ctx.beginPath();
+                ctx.moveTo(cx + 6, cy + 3);
+                ctx.lineTo(cx + cw - 6, cy + 3);
+                ctx.quadraticCurveTo(cx + cw - 3, cy + 3, cx + cw - 3, cy + 6);
+                ctx.lineTo(cx + 3, cy + 6);
+                ctx.quadraticCurveTo(cx + 3, cy + 3, cx + 6, cy + 3);
+                ctx.fill();
+            }
+
+            ctx.strokeStyle = cand.used ? 'rgba(51,51,51,0.15)' : 'rgba(255,215,0,0.35)';
             ctx.lineWidth = 1.5;
             roundRect(ctx, cx, cy, cw, ch, 6);
             ctx.stroke();
 
+
+
             if (cand.used) ctx.globalAlpha = 0.15;
+
             const sz2 = cardSizes[ci];
+
             for (const [r, c] of cand.cells) {
+
                 const px = cx + PAD + (c - sz2.minC) * scaledPcs;
+
                 const py = cy + CARD_PAD + (r - sz2.minR) * scaledPcs;
+
                 const cellSz = Math.min(scaledPcs - 1, innerH / (sz2.maxR - sz2.minR + 1), innerW / (sz2.maxC - sz2.minC + 1));
-                ctx.fillStyle = cand.def.color;
+
+                // 3D方块格子
+                const baseColor = cand.def.color;
+                // 凸起效果：上左亮，下右暗
+                ctx.fillStyle = baseColor;
                 ctx.fillRect(px + 1, py + 1, cellSz - 2, cellSz - 2);
+                // 高光边（上+左）
+                ctx.fillStyle = 'rgba(255,255,255,0.28)';
+                ctx.fillRect(px + 1, py + 1, cellSz - 2, 2);
+                ctx.fillRect(px + 1, py + 1, 2, cellSz - 2);
+                // 阴影边（下+右）
+                ctx.fillStyle = 'rgba(0,0,0,0.28)';
+                ctx.fillRect(px + 1, py + cellSz - 3, cellSz - 2, 2);
+                ctx.fillRect(px + cellSz - 3, py + 1, 2, cellSz - 2);
+                // 内描边
                 ctx.strokeStyle = 'rgba(255,255,255,0.18)';
                 ctx.lineWidth = 0.5;
                 ctx.strokeRect(px + 1, py + 1, cellSz - 2, cellSz - 2);
+
             }
+
             ctx.globalAlpha = 1;
 
+
+
+            if (isHovered && !cand.used) ctx.restore();
+
             if (!cand.used) {
+
                 window._cardRects.push({ x: cx - 4, y: cy - 4, w: cw + 8, h: ch + 8, idx: ci });
+
             }
+
+            if (isHover && !cand.used) ctx.restore();
+
             cardX += cw + GAP;
+
         }
+
         cardY += scaledCardH;
+
     }
+
+    zone.btnTop = cardY + 4;
 }
+
+
 
 function drawButtons() {
+
     const z = zone;
+
     const btnY = z.btnTop;
+
     const btnW = Math.floor((W - 32 - z.BTN_GAP) / 2);
+
     const btnH = z.BTN_H;
+
     const ux = 16;
+
     const hasUndo = placedHistory && placedHistory.length > 0;
 
+
+
     ctx.fillStyle = hasUndo ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)';
+
     roundRect(ctx, ux, btnY, btnW, btnH, 10);
+
     ctx.fill();
+
     ctx.strokeStyle = hasUndo ? 'rgba(255,215,0,0.22)' : 'rgba(255,255,255,0.06)';
+
     ctx.lineWidth = 1;
+
     roundRect(ctx, ux, btnY, btnW, btnH, 10);
+
     ctx.stroke();
+
     ctx.font = 'bold 14px sans-serif';
+
     ctx.fillStyle = hasUndo ? '#fff' : 'rgba(255,255,255,0.3)';
+
     ctx.textAlign = 'center';
+
     ctx.textBaseline = 'middle';
+
     ctx.fillText('↩️ 撤销', ux + btnW / 2, btnY + btnH / 2);
+
     window._btnRects = [{ x: ux, y: btnY, w: btnW, h: btnH, action: 'undo', disabled: !hasUndo }];
 
+
+
     const rx = ux + btnW + z.BTN_GAP;
+
     ctx.fillStyle = 'rgba(255,255,255,0.06)';
+
     roundRect(ctx, rx, btnY, btnW, btnH, 10);
+
     ctx.fill();
+
     ctx.strokeStyle = 'rgba(255,215,0,0.22)';
+
     ctx.lineWidth = 1;
+
     roundRect(ctx, rx, btnY, btnW, btnH, 10);
+
     ctx.stroke();
+
     ctx.fillStyle = '#fff';
+
     ctx.fillText('🔃 重置', rx + btnW / 2, btnY + btnH / 2);
+
     window._btnRects.push({ x: rx, y: btnY, w: btnW, h: btnH, action: 'reset', disabled: false });
 
+
+
     ctx.textAlign = 'left';
+
     ctx.textBaseline = 'alphabetic';
+
 }
+
+
 
 function drawHint() {
+
     const bar = document.getElementById('hintBar');
+
     if (!bar) return;
+
     bar.textContent = hintText;
+
     bar.style.color = hintColor;
+
     bar.style.background = hintColor === '#ff4444' ? 'rgba(255,68,68,0.1)' :
+
                            hintColor === '#81c784' ? 'rgba(129,199,132,0.1)' :
+
                            hintColor === '#ffd700' ? 'rgba(255,215,0,0.08)' : 'transparent';
+
 }
+
+
 
 function drawDragPiece() {
+
     if (dragIdx < 0 || !cellSize) return;
+
     const cand = candidates[dragIdx];
+
     const cs = Math.max(cellSize, 14);
+
     let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+
     for (const [r, c] of cand.cells) {
+
         minR = Math.min(minR, r); maxR = Math.max(maxR, r);
+
         minC = Math.min(minC, c); maxC = Math.max(maxC, c);
+
     }
+
     const offX = (maxC - minC + 1) * cs / 2;
+
     const offY = (maxR - minR + 1) * cs / 2;
+
     ctx.globalAlpha = 0.72;
+
     for (const [r, c] of cand.cells) {
+
         const x = lastPointerX + (c - minC) * cs - offX;
+
         const y = lastPointerY + (r - minR) * cs - offY;
+
         ctx.fillStyle = cand.def.color;
+
         ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+
         ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+
         ctx.lineWidth = 2;
+
         ctx.strokeRect(x + 1, y + 1, cs - 2, cs - 2);
+
     }
+
     ctx.globalAlpha = 1;
+
 }
+
+
 
 function drawPreview() {
+
     if (!dragging || !previewAnchor || !cellSize) return;
+
     const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY;
+
     const [ar, ac] = previewAnchor;
+
     const cand = candidates[dragIdx];
+
     for (const [r, c] of cand.cells) {
+
         const gr = ar + r, gc = ac + c;
+
         if (gr < 0 || gr >= gridSize || gc < 0 || gc >= gridSize) continue;
+
         ctx.fillStyle = previewValid ? 'rgba(255,215,0,0.4)' : 'rgba(255,51,51,0.4)';
+
         ctx.fillRect(ox + gc * cs + 2, oy + gr * cs + 2, cs - 4, cs - 4);
+
     }
+
 }
+
+
 
 function drawFlash() {
+
     if (!cellSize) return;
+
     const now = Date.now();
+
     flashCells = flashCells.filter(f => now - f.t < 350);
+
     for (const f of flashCells) {
+
         const elapsed = now - f.t;
+
         const a = 0.6 * (1 - elapsed / 350);
+
         ctx.fillStyle = `rgba(255,255,255,${a})`;
+
         ctx.fillRect(gridOffsetX + f.c * cellSize + 1, gridOffsetY + f.r * cellSize + 1, cellSize - 2, cellSize - 2);
+
     }
+
 }
+
+
 
 // ---- Game Logic ----
+
 function setHint(text, color) {
+
     hintText = text;
+
     hintColor = color || '#8a8a9a';
+
     drawHint();
+
     if (hintTimer) clearTimeout(hintTimer);
+
     if (text) {
+
         hintTimer = setTimeout(() => {
+
             hintText = '';
+
             hintColor = '#8a8a9a';
+
             drawHint();
+
         }, text.includes('方块已放置') ? 1500 : 2500);
+
     }
+
 }
+
+
+
+
+
+// ---- Auto-save / resume ----
+
+function saveGame() {
+
+    try {
+
+        localStorage.setItem('rust_save', JSON.stringify({
+
+            v: 1,
+
+            level: currentLevel,
+
+            grid: gridData,
+
+            pieces: candidates.map(function(c){ return { i: c.idx, u: c.used }; })
+
+        }));
+
+    } catch(e) {}
+
+}
+
+function loadSave() {
+
+    try {
+
+        var s = localStorage.getItem('rust_save');
+
+        if (!s) return false;
+
+        var d = JSON.parse(s);
+
+        if (d.v !== 1) return false;
+        const lv = LEVELS[d.level];
+        if (!lv || !d.grid || d.grid.length !== lv.grid) return false;
+
+        currentLevel = d.level;
+
+        gridData = d.grid;
+
+        d.pieces.forEach(function(p){ candidates[p.i].used = p.u; });
+
+        return true;
+
+    } catch(e) { return false; }
+
+}
+
+
 
 function loadLevel(idx) {
+
     currentLevel = Math.max(0, Math.min(idx, LEVELS.length - 1));
+
     const lv = LEVELS[currentLevel];
+
     gridSize = lv.grid;
+
     startPos = [...lv.start];
+
     endPos = [...lv.end];
+
     won = false;
+    winPath = null;
+
     failed = false;
+
     placedHistory = [];
+
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
 
+
+
     gridData = [];
+
     for (let r = 0; r < gridSize; r++) {
+
         gridData[r] = [];
+
         for (let c = 0; c < gridSize; c++) gridData[r][c] = 0;
+
     }
+
     for (const [r, c] of lv.obstacles) {
+
         if (r >= 0 && r < gridSize && c >= 0 && c < gridSize) gridData[r][c] = 2;
+
     }
+
+
 
     candidates = lv.pieces.map(name => {
+
         const def = PIECE_DEFS[name];
+
         if (!def) return { name, def: PIECE_DEFS.DOT, cells: [[0,0]], used: false };
+
         return { name, def, cells: def.cells.map(c => [...c]), used: false };
+
     });
 
+
+
     hintText = '';
+
     hintColor = '#8a8a9a';
+
     if (hintTimer) clearTimeout(hintTimer);
+
     timeLeft = TIMER_SECONDS;
+
     flashCells = [];
+
     dragging = false;
+
     dragIdx = -1;
+
     previewAnchor = null;
+
     previewValid = false;
+
     countdownActive = false;
 
+
+
     calcLayout();
+
     draw();
-    if (firstTime) { firstTime = false; showTutorial(); }
+
+    const resumed = loadSave();
+
+    if (!resumed && firstTime) { firstTime = false; showTutorial(); }
+
     startCountdown();
+
 }
+
+
 
 function startCountdown() {
+
     ensureAudio();
+
     countdownActive = true;
+
     const cd = document.getElementById('cd');
+
     const cdText = document.getElementById('cdText');
+
     if (!cd || !cdText) return;
+
     let count = 3;
 
+
+
     function showNum(n, cls) {
+
         cd.style.display = 'flex';
+
         cdText.className = cls || 'cd-num';
+
         cdText.textContent = n > 0 ? n : 'GO!';
+
         cdText.style.animation = 'none';
+
         cdText.offsetHeight;
+
         cdText.style.animation = 'cdPop .6s ease-out forwards';
+
         if (n > 0) SFX.tick();
+
         else SFX.go();
+
     }
+
+
 
     function tick() {
+
         if (count > 0) {
+
             showNum(count, 'cd-num');
+
             count--;
+
             setTimeout(tick, 700);
+
         } else {
+
             showNum(0, 'cd-go');
+
             setTimeout(() => {
+
                 cd.style.display = 'none';
+
                 countdownActive = false;
+
                 startTimer();
+
             }, 600);
+
         }
+
     }
+
     tick();
+
 }
+
+
 
 function startTimer() {
+
     if (timerInterval) clearInterval(timerInterval);
+
     timeLeft = TIMER_SECONDS;
+
     timerInterval = setInterval(() => {
-        if (won || failed || countdownActive) return;
+
+        if (won || failed || countdownActive || tutorialShowing) return;
+
         timeLeft--;
+
         draw();
+
         if (timeLeft <= 0) {
+
             failed = true;
+
             clearInterval(timerInterval);
+
             timerInterval = null;
+
             SFX.fail();
+
             setTimeout(showFail, 200);
+
         }
+
     }, 1000);
+
 }
+
+
 
 function placePiece(idx, anchorR, anchorC) {
+
     const cand = candidates[idx];
+
     const absCells = cand.cells.map(([r, c]) => [anchorR + r, anchorC + c]);
+
     for (const [r, c] of absCells) {
+
         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return false;
+
         if (gridData[r][c] === 2 || gridData[r][c] === 1) return false;
+
     }
+
     for (const [r, c] of absCells) gridData[r][c] = 1;
+
     placedHistory.push({ idx, anchorR, anchorC, cells: absCells });
+
     cand.used = true;
 
+
+
     SFX.place();
+        vibrate(25);
+
+
 
     const now = Date.now();
+
     for (const [r, c] of absCells) flashCells.push({ r, c, t: now });
 
+
+
     const unused = candidates.filter(c => !c.used).length;
+
     setHint('✅ 方块已放置！还剩 ' + unused + ' 块', '#81c784');
+
     draw();
+    saveGame();
+
 
     if (checkWin()) {
+
         won = true;
+
         if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+
         SFX.win();
+
         setTimeout(showWin, 400);
+
     } else {
+
         const possible = canPossiblyWin();
+
         if (!possible) {
+
             setHint('⚠️ 路径已断，无法到达终点！', '#ffd700');
+
         }
+
     }
+
     return true;
+
 }
+
+
 
 function undo() {
+
     if (!placedHistory || placedHistory.length === 0 || won || failed) return;
+
     SFX.undo();
+        vibrate(15);
+
     const last = placedHistory.pop();
+
     for (const [r, c] of last.cells) gridData[r][c] = 0;
+
     candidates[last.idx].used = false;
+
     setHint('↩️ 已撤销', '#8a8a9a');
+
     draw();
+    saveGame();
+
 }
+
+
 
 function checkWin() {
+
     if (!gridData || !startPos || !endPos) return false;
+
     const gs = gridSize;
+
     const visited = Array.from({ length: gs }, () => Array(gs).fill(false));
+
     const queue = [[...startPos]];
+
     visited[startPos[0]][startPos[1]] = true;
+
     const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+
     while (queue.length) {
+
         const [r, c] = queue.shift();
+
         if (r === endPos[0] && c === endPos[1]) return true;
+
         for (const [dr, dc] of dirs) {
+
             const nr = r + dr, nc = c + dc;
+
             if (nr >= 0 && nr < gs && nc >= 0 && nc < gs && !visited[nr][nc] && gridData[nr][nc] === 1) {
+
                 visited[nr][nc] = true;
+
                 queue.push([nr, nc]);
+
             }
+
         }
+
     }
+
     return false;
+
 }
+
+
 
 function canPossiblyWin() {
+
     if (!gridData || !startPos || !endPos) return true;
+
     const gs = gridSize;
+
     const reachable = Array.from({ length: gs }, () => Array(gs).fill(false));
+
     const queue = [[...startPos]];
+
     reachable[startPos[0]][startPos[1]] = true;
+
     const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+
     while (queue.length) {
+
         const [r, c] = queue.shift();
+
         for (const [dr, dc] of dirs) {
+
             const nr = r + dr, nc = c + dc;
+
             if (nr >= 0 && nr < gs && nc >= 0 && nc < gs && !reachable[nr][nc] && gridData[nr][nc] !== 2) {
+
                 reachable[nr][nc] = true;
+
                 queue.push([nr, nc]);
+
             }
+
         }
+
     }
+
     return reachable[endPos[0]][endPos[1]];
+
 }
+
+
 
 function findPath() {
+
     if (!gridData || !startPos || !endPos) return new Set();
+
     const gs = gridSize;
+
     const visited = Array.from({ length: gs }, () => Array(gs).fill(false));
+
     const parent = Array.from({ length: gs }, () => Array(gs).fill(null));
+
     const queue = [[...startPos]];
+
     visited[startPos[0]][startPos[1]] = true;
+
     const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+
     while (queue.length) {
+
         const [r, c] = queue.shift();
+
         if (r === endPos[0] && c === endPos[1]) {
+
             const path = new Set();
+
             let cur = [r, c];
+
             while (cur) { path.add(cur[0] * gs + cur[1]); cur = parent[cur[0]][cur[1]]; }
+
             return path;
+
         }
+
         for (const [dr, dc] of dirs) {
+
             const nr = r + dr, nc = c + dc;
+
             if (nr >= 0 && nr < gs && nc >= 0 && nc < gs && !visited[nr][nc] && gridData[nr][nc] === 1) {
+
                 visited[nr][nc] = true;
+
                 parent[nr][nc] = [r, c];
+
                 queue.push([nr, nc]);
+
             }
+
         }
+
     }
+
     return new Set();
+
 }
+
+
 
 // ---- Modals ----
+
 function showModal(content, className) {
+
     document.querySelectorAll('.modal-overlay').forEach(e => e.remove());
+
     const div = document.createElement('div');
+
     div.className = 'modal-overlay';
+
     div.innerHTML = `<div class="modal-box ${className || ''}">${content}</div>`;
+
     document.body.appendChild(div);
+
     return div;
+
 }
+
+
 
 function showTutorial() {
+    tutorialShowing = true;
+
     const div = showModal(`
+
         <h2>🎮 末日锈纪:筑路求生</h2>
+
         <p style="text-align:left;font-size:13px;line-height:1.8;color:#aaa">
+
             🟦 <b style="color:#29b6f6">蓝色格</b>是起点，<b style="color:#ef5350">红色格</b>是终点<br>
+
             🔵 用方块搭一条通路连接它们<br>
+
             ✋ 拖动方块卡片，放到棋盘上<br>
+
             ⏱️ 每关限时 <b>20秒</b><br>
+
             🔄 用撤销和重置按钮来调整<br>
+
             🔊 右上角可开关声音
+
         </p>
+
         <button id="btnStart">开始游戏 →</button>
+
     `);
+
     const btn = document.getElementById('btnStart');
-    if (btn) btn.onclick = () => { ensureAudio(); div.remove(); };
+
+    if (btn) btn.onclick = () => { tutorialShowing = false; ensureAudio(); div.remove(); };
+
 }
+
+
 
 function showWin() {
+
+    try { localStorage.removeItem('rust_save'); } catch(e) {}
+
     draw();
+
     if (!cellSize) return;
-    const pathSet = findPath();
-    const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY;
-    for (const key of pathSet) {
-        const r = Math.floor(key / gridSize), c = key % gridSize;
-        ctx.fillStyle = 'rgba(129,199,132,0.55)';
-        ctx.fillRect(ox + c * cs + 2, oy + r * cs + 2, cs - 4, cs - 4);
-    }
+
+        winPath = findPath();
     draw();
+    spawnConfetti();
+        vibrate([100, 50, 100]);
+
+
 
     const used = placedHistory ? placedHistory.length : 0;
+
     const total = candidates ? candidates.length : 0;
+
     const isLast = currentLevel >= LEVELS.length - 1;
+
     const timeUsed = TIMER_SECONDS - timeLeft;
 
+
+
     let msg = `<h2>🎉 通路达成!</h2><p>用了 ${used}/${total} 块 | 用时 ${timeUsed}秒</p>`;
+
     if (isLast) msg += `<p style="color:#ffd700;font-size:13px">🏆 恭喜通关全部关卡！</p>`;
+
     msg += `<button id="btnNext">${isLast ? '🔄 重玩一遍' : '下一关 →'}</button>`;
 
+
+
     const div = showModal(msg);
+
     const btnNext = document.getElementById('btnNext');
+
     if (btnNext) btnNext.onclick = () => { div.remove(); if (isLast) loadLevel(0); else loadLevel(currentLevel + 1); };
+
 }
+
+
 
 function showFail() {
+    confetti = []; celebrating = false;
+
+
     setHint('⏰ 时间到!', '#ff4444');
+
     draw();
+
     const lvName = LEVEL_NAMES[currentLevel] || '';
+
     const div = showModal(`
+
         <h2>⏰ 时间到!</h2>
+
         <p>第 ${currentLevel + 1} 关「${lvName}」失败</p>
+
         <p style="font-size:12px;color:#666">用时 ${TIMER_SECONDS}秒，加油！</p>
+
         <button id="btnRetry" class="btn-retry">🔄 再试一次</button>
+
     `, 'fail');
+
     const btn = document.getElementById('btnRetry');
+
     if (btn) btn.onclick = () => { div.remove(); loadLevel(currentLevel); };
+
 }
+
+
 
 // ---- Input ----
+
 function getXY(e) {
+
     const rect = canvas.getBoundingClientRect();
+
     if (e.touches && e.touches.length > 0) {
+
         return [e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top];
+
     }
+
     return [e.clientX - rect.left, e.clientY - rect.top];
+
 }
+
+
 
 function hitTest(x, y, rects) {
+
     if (!rects) return null;
+
     for (const r of rects) {
+
         if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return r;
+
     }
+
     return null;
+
 }
+
+
 
 canvas.addEventListener('pointerdown', (e) => {
-    if (won || failed || countdownActive) return;
+
+    if (won || failed || countdownActive || tutorialShowing) return;
+
     e.preventDefault();
+
     ensureAudio();
+
     const [x, y] = getXY(e);
+
     lastPointerX = x;
+
     lastPointerY = y;
+
+
 
     const btn = hitTest(x, y, window._btnRects);
+
     if (btn) {
+
         if (!btn.disabled) {
+
             if (btn.action === 'undo') undo();
+
             else if (btn.action === 'reset') { SFX.reset(); loadLevel(currentLevel); }
+
         }
+
         return;
+
     }
+
+
 
     const card = hitTest(x, y, window._cardRects);
+
     if (card) {
+
         dragging = true;
+
         dragIdx = card.idx;
+
         previewAnchor = null;
+
         previewValid = false;
+
         draw();
+
     }
+
 }, { passive: false });
+
+
 
 canvas.addEventListener('pointermove', (e) => {
+
     if (!dragging) return;
+
     e.preventDefault();
+
     const [x, y] = getXY(e);
+
     lastPointerX = x;
+
     lastPointerY = y;
 
+
+
     if (!cellSize || !gridSize) { draw(); return; }
+
     const cs = cellSize, ox = gridOffsetX, oy = gridOffsetY, gs = gridSize;
+
     const cand = candidates[dragIdx];
+
     let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+
     for (const [r, c] of cand.cells) {
+
         minR = Math.min(minR, r); maxR = Math.max(maxR, r);
+
         minC = Math.min(minC, c); maxC = Math.max(maxC, c);
+
     }
+
     const gc = Math.floor((x - ox) / cs);
+
     const gr = Math.floor((y - oy) / cs);
+
     const anchorR = Math.round(gr - (minR + maxR) / 2);
+
     const anchorC = Math.round(gc - (minC + maxC) / 2);
 
+
+
     let valid = true;
+
     for (const [r, c] of cand.cells) {
+
         const ar = anchorR + r, ac = anchorC + c;
+
         if (ar < 0 || ar >= gs || ac < 0 || ac >= gs) valid = false;
+
         else if (gridData[ar][ac] === 2 || gridData[ar][ac] === 1) valid = false;
+
     }
+
     previewAnchor = [anchorR, anchorC];
+
     previewValid = valid;
+
     draw();
+
 }, { passive: false });
+
+
 
 canvas.addEventListener('pointerup', (e) => {
+
     if (!dragging) return;
+
     e.preventDefault();
+
     dragging = false;
 
+
+
     if (cellSize && gridSize && previewValid) {
+
         placePiece(dragIdx, previewAnchor[0], previewAnchor[1]);
+
     } else if (previewAnchor && !previewValid) {
+
         setHint('❌ 位置被占用或超出边界', '#ff6b6b');
+
     }
 
+
+
     dragIdx = -1;
+
     previewAnchor = null;
+
     previewValid = false;
+
     draw();
+
 }, { passive: false });
+
+
 
 canvas.addEventListener('pointercancel', (e) => {
+
     dragging = false; dragIdx = -1; previewAnchor = null; previewValid = false; draw();
+
 }, { passive: false });
 
+
+
 // ---- Helpers ----
+
 function roundRect(ctx, x, y, w, h, r) {
+
     ctx.beginPath();
+
     ctx.moveTo(x + r, y);
+
     ctx.lineTo(x + w - r, y);
+
     ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+
     ctx.lineTo(x + w, y + h - r);
+
     ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+
     ctx.lineTo(x + r, y + h);
+
     ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+
     ctx.lineTo(x, y + r);
+
     ctx.quadraticCurveTo(x, y, x + r, y);
+
     ctx.closePath();
+
 }
+
+
 
 // ---- Game loop ----
+
 function loop() {
+
     updateParticles();
+    updateConfetti();
+    drawConfetti();
+
     draw();
+
     requestAnimationFrame(loop);
+
 }
 
+
+
 // ---- Init ----
+
 window._cardRects = [];
+
 window._btnRects = [];
+
 resize();
+
 initParticles();
+
 loadLevel(0);
+
 loop();
+
 </script>
+
 </body>
+
 </html>
