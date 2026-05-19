@@ -2255,17 +2255,18 @@ loop();
 function showLevelSelect() {
   try {
     const p = JSON.parse(localStorage.getItem('passedLevels') || '[]');
-    let html = '<div class="lv-overlay" id="lvOverlay"><div class="lv-box"><h2>🗺️ 选择关卡</h2><div class="lv-grid">'
+    let html = '<div class="lv-overlay" id="lvOverlay"><div class="lv-box"><h2>🗺️ 选择关卡</h2><div class="lv-grid">';
     for (let i = 0; i < LEVELS.length; i++) {
       const passed = p.includes(i);
       const isCurrent = (i === currentLevel);
+      const canPlay = passed || isCurrent || i === 0 || (i > 0 && p.includes(i-1));
       let cls = 'lv-btn';
       if (passed) cls += ' passed';
       if (isCurrent) cls += ' current';
-      if (!passed && !isCurrent && i > 0 && !p.includes(i-1)) cls += ' locked';
-      html += '<button class="' + cls + '" data-lv="' + i + '" ' + (cls.includes('locked')?'disabled':'') + '>' + (i+1) + '</button>';
+      if (!canPlay) cls += ' locked';
+      html += '<button class="' + cls + '" data-lv="' + i + '" ' + (!canPlay?'disabled':'') + '>' + (i+1) + (passed ? ' ✓' : '') + '</button>';
     }
-    html += '</div><button onclick="hideLevelSelect()" style="width:100%;padding:12px;border:1px solid rgba(255,255,255,.15);border-radius:12px;background:rgba(255,255,255,.06);color:#aaa;font-size:14px;cursor:pointer">关闭</button></div></div>';
+    html += '</div><button onclick="hideLevelSelect()" style="width:100%;padding:12px;border:1px solid rgba(255,255,255,0.15);border-radius:12px;background:rgba(255,255,255,0.06);color:#aaa;font-size:14px;cursor:pointer">关闭</button></div></div>';
     document.querySelectorAll('.lv-overlay').forEach(e=>e.remove());
     document.body.insertAdjacentHTML('beforeend', html);
     document.querySelectorAll('.lv-btn:not(.locked)').forEach(btn => {
@@ -2277,7 +2278,10 @@ function showLevelSelect() {
     });
   } catch(e) { console.error(e); }
 }
+
 function hideLevelSelect() {
+  document.querySelectorAll('.lv-overlay').forEach(e=>e.remove());
+}function hideLevelSelect() {
   document.querySelectorAll('.lv-overlay').forEach(e=>e.remove());
 }
 </script>
