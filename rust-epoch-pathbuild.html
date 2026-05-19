@@ -107,7 +107,19 @@
         @keyframes ripple-anim {
             to { transform: scale(4); opacity: 0; }
         }
-        </style>
+        
+        /* 关卡选择器 */
+        .lv-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);display:flex;align-items:center;justify-content:center;z-index:300;animation:fadeIn .3s ease}
+        .lv-box{background:rgba(26,26,46,.92);border-radius:24px;padding:28px 32px;width:90%;max-width:400px;border:1px solid rgba(255,215,0,.35);box-shadow:0 0 50px rgba(255,215,0,.12);animation:modalSlideUp .4s ease-out}
+        .lv-box h2{color:#ffd700;font-size:20px;margin-bottom:16px;text-align:center;letter-spacing:1px}
+        .lv-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
+        .lv-btn{width:52px;height:52px;border-radius:14px;border:1.5px solid rgba(255,215,0,.3);background:rgba(255,255,255,.05);color:#fff;font-size:15px;font-weight:bold;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;position:relative}
+        .lv-btn.passed{background:rgba(129,199,132,.2);border-color:rgba(129,199,132,.5);color:#81c784}
+        .lv-btn.passed::after{content:'✓';position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#81c784;color:#000;font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:bold}
+        .lv-btn.current{border-color:#ffd700;background:rgba(255,215,0,.15);box-shadow:0 0 12px rgba(255,215,0,.3)}
+        .lv-btn.locked{opacity:.35;cursor:not-allowed}
+        .lv-btn:not(.locked):hover{transform:scale(1.08);box-shadow:0 0 16px rgba(255,215,0,.3)}
+  </style>
 
 </head>
 
@@ -662,6 +674,10 @@ function drawTopBar() {
     ctx.textAlign = 'left';
 
     ctx.fillText('🛤️  第 ' + (currentLevel + 1) + '/' + LEVELS.length + ' 关', z.MARGIN + 24, z.safeTop + 28);
+    // 绘制选关按钮
+    ctx.fillStyle = 'rgba(255,215,0,0.6)'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('🗺️ 选关', z.MARGIN + 24 + 80, z.safeTop + 28);
+    window._levelSelectBtn = { x: z.MARGIN + 24 + 60, y: z.safeTop + 14, w: 60, h: 24 };
 
     ctx.font = '11px sans-serif';
 
@@ -1814,6 +1830,11 @@ function showTutorial() {
 function showWin() {
 
     try { localStorage.removeItem('rust_save'); } catch(e) {}
+    try {
+      let p = JSON.parse(localStorage.getItem('passedLevels') || '[]');
+      if (!p.includes(currentLevel)) p.push(currentLevel);
+      localStorage.setItem('passedLevels', JSON.stringify(p));
+    } catch(e) {}
 
     draw();
 
@@ -1948,7 +1969,7 @@ canvas.addEventListener('pointerdown', (e) => {
 
             if (btn.action === 'undo') undo();
 
-            else if (btn.action === 'reset') { SFX.reset(); loadLevel(currentLevel); }
+            else if (btn.action === 'reset') { SFX.reset(); try{localStorage.removeItem('rust_save');}catch(e){}; loadLevel(currentLevel); }
 
         }
 
@@ -1958,7 +1979,13 @@ canvas.addEventListener('pointerdown', (e) => {
 
 
 
-    const card = hitTest(x, y, window._cardRects);
+        // 选关按钮
+    if (window._levelSelectBtn) {
+      const b = window._levelSelectBtn;
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { showLevelSelect(); return; }
+    }
+
+const card = hitTest(x, y, window._cardRects);
 
     if (card) {
 
@@ -2222,6 +2249,37 @@ loadLevel(0);
 
 loop();
 
+
+
+// ---- 关卡选择器 ----
+function showLevelSelect() {
+  try {
+    const p = JSON.parse(localStorage.getItem('passedLevels') || '[]');
+    let html = '<div class="lv-overlay" id="lvOverlay"><div class="lv-box"><h2>🗺️ 选择关卡</h2><div class="lv-grid">'
+    for (let i = 0; i < LEVELS.length; i++) {
+      const passed = p.includes(i);
+      const isCurrent = (i === currentLevel);
+      let cls = 'lv-btn';
+      if (passed) cls += ' passed';
+      if (isCurrent) cls += ' current';
+      if (!passed && !isCurrent && i > 0 && !p.includes(i-1)) cls += ' locked';
+      html += '<button class="' + cls + '" data-lv="' + i + '" ' + (cls.includes('locked')?'disabled':'') + '>' + (i+1) + '</button>';
+    }
+    html += '</div><button onclick="hideLevelSelect()" style="width:100%;padding:12px;border:1px solid rgba(255,255,255,.15);border-radius:12px;background:rgba(255,255,255,.06);color:#aaa;font-size:14px;cursor:pointer">关闭</button></div></div>';
+    document.querySelectorAll('.lv-overlay').forEach(e=>e.remove());
+    document.body.insertAdjacentHTML('beforeend', html);
+    document.querySelectorAll('.lv-btn:not(.locked)').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const lv = parseInt(this.getAttribute('data-lv'));
+        hideLevelSelect();
+        loadLevel(lv);
+      });
+    });
+  } catch(e) { console.error(e); }
+}
+function hideLevelSelect() {
+  document.querySelectorAll('.lv-overlay').forEach(e=>e.remove());
+}
 </script>
 
 </body>
