@@ -807,7 +807,8 @@ function drawCandidates() {
         }
     }
 
-    const z = zone;
+    const z = zone;
+
 
 
     if (!z || !candidates) return;
@@ -2190,6 +2191,12 @@ window._btnRects = [];
 resize();
 
 initParticles();
+
+// P1-6: 音效开关引导（首次加载提示）
+if (!localStorage.getItem('soundHintShown')) {
+    setTimeout(function() { setHint('💡 右上角可开关音效', '#ffd700'); }, 1500);
+    localStorage.setItem('soundHintShown', 'true');
+}
 
 loadLevel(0);
 
