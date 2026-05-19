@@ -1019,15 +1019,13 @@ function drawCandidates() {
 
 
 
-            if (isHovered && !cand.used) ctx.restore();
-
             if (!cand.used) {
 
                 window._cardRects.push({ x: cx - 4, y: cy - 4, w: cw + 8, h: ch + 8, idx: ci });
 
             }
 
-            if (isHover && !cand.used) ctx.restore();
+
 
             cardX += cw + GAP;
 
