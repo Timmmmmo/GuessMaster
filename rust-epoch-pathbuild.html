@@ -213,7 +213,10 @@ function ensureAudio() {
 
     if (!audioCtx) {
 
-        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)();   if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  // 启动BGM
+  if (soundEnabled && !BGM.playing) BGM.start();
+} catch(e) {}
 
     }
 
@@ -302,6 +305,73 @@ const SFX = {
         setTimeout(() => playTone(200, 'sine', 0.06, 0.06), 150);
     },
 };
+// === BGM系统 (腾讯/网易标准) ===
+const BGM = {
+  ctx: null,
+  playing: false,
+  nodes: [],
+  masterGain: null,
+  
+  init() {
+    if (this.ctx) return;
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.gain.value = 0.12;
+      this.masterGain.connect(this.ctx.destination);
+    } catch(e) {}
+  },
+  
+  start() {
+    if (!soundEnabled || this.playing) return;
+    this.init();
+    if (!this.ctx) return;
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    
+    // 生成环境背景音（简约大气）
+    const freqs = [110, 146.83, 164.81, 196, 220]; // A2, D3, E3, G3, A3
+    const types = ['sine', 'triangle'];
+    
+    freqs.forEach((freq, i) => {
+      const osc = this.ctx.createOscillator();
+      osc.type = types[i % types.length];
+      osc.frequency.value = freq;
+      
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0.08 / (i + 1);
+      
+      // 添加缓慢LFO制造飘渺感
+      const lfo = this.ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.1 + i * 0.05;
+      const lfoGain = this.ctx.createGain();
+      lfoGain.gain.value = 3;
+      lfo.connect(lfoGain);
+      lfoGain.connect(gain.gain);
+      lfo.start();
+      
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start();
+      
+      this.nodes.push(osc, lfo, lfoGain, gain);
+    });
+    
+    this.playing = true;
+  },
+  
+  stop() {
+    this.nodes.forEach(n => { try { n.stop(); } catch(e) {} });
+    this.nodes = [];
+    this.playing = false;
+  },
+  
+  toggle() {
+    if (this.playing) { this.stop(); return false; }
+    else { this.start(); return true; }
+  }
+};
+
 
 
 
@@ -309,7 +379,7 @@ soundBtn.addEventListener('click', () => {
 
     soundEnabled = !soundEnabled;
 
-    soundBtn.textContent = soundEnabled ? '🔊' : '🔇';
+    soundBtn.textContent = soundEnabled ? '🔊' : '🔇'; if(!soundEnabled) BGM.stop();
 
     ensureAudio();
 
@@ -336,6 +406,7 @@ let gridData, startPos, endPos, candidates, placedHistory;
 
 let currentLevel = 0;
 
+let usedUndo = false;
 let won = false, failed = false;
 
 let timeLeft = TIMER_SECONDS, timerInterval = null;
@@ -623,7 +694,28 @@ function drawParticles() {
 
 // ---- Draw ----
 
+
+// 屏幕震动效果
+let shakeX = 0, shakeY = 0, shakeIntensity = 0;
+function triggerShake(intensity) {
+  shakeIntensity = intensity || 8;
+}
+function updateShake() {
+  if (shakeIntensity > 0) {
+    shakeX = (Math.random() - 0.5) * shakeIntensity;
+    shakeY = (Math.random() - 0.5) * shakeIntensity;
+    shakeIntensity *= 0.85; // 衰减
+    if (shakeIntensity < 0.5) { shakeIntensity = 0; shakeX = 0; shakeY = 0; }
+  } else {
+    shakeX = 0; shakeY = 0;
+  }
+}
+
 function draw() {
+  updateShake();
+  ctx.save();
+  if (shakeIntensity > 0) ctx.translate(shakeX, shakeY);
+
     // 动态背景
     const bgGrad = ctx.createLinearGradient(0, 0, W, H);
     const t = Date.now() * 0.0003;
@@ -678,6 +770,19 @@ function drawTopBar() {
     ctx.fillStyle = 'rgba(255,215,0,0.6)'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('🗺️ 选关', z.MARGIN + 24 + 80, z.safeTop + 28);
     window._levelSelectBtn = { x: z.MARGIN + 24 + 60, y: z.safeTop + 14, w: 60, h: 24 };
+
+    // 每日挑战按钮
+    ctx.fillStyle = 'rgba(255,215,0,0.5)'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+    const dailyCompleted = isDailyCompleted();
+    ctx.fillStyle = dailyCompleted ? 'rgba(129,199,132,0.6)' : 'rgba(255,215,0,0.6)';
+    ctx.fillText(dailyCompleted ? '📅 ✓' : '📅 每日', z.MARGIN + 24 + 160, z.safeTop + 28);
+    window._dailyBtn = { x: z.MARGIN + 24 + 140, y: z.safeTop + 14, w: 70, h: 24 };
+    
+    // 排行榜按钮
+    ctx.fillStyle = 'rgba(255,215,0,0.5)';
+    ctx.fillText('🏆 排行', z.MARGIN + 24 + 240, z.safeTop + 28);
+    window._lobbyBtn = { x: z.MARGIN + 24 + 220, y: z.safeTop + 14, w: 70, h: 24 };
+
 
     ctx.font = '11px sans-serif';
 
@@ -1352,6 +1457,8 @@ function loadSave() {
 
 
 function loadLevel(idx) {
+    usedUndo = false;
+
 
     currentLevel = Math.max(0, Math.min(idx, LEVELS.length - 1));
 
@@ -1613,6 +1720,8 @@ function placePiece(idx, anchorR, anchorC) {
 
 
 function undo() {
+    usedUndo = true;
+
 
     if (!placedHistory || placedHistory.length === 0 || won || failed) return;
 
@@ -1828,7 +1937,6 @@ function showTutorial() {
 
 
 function showWin() {
-
     try { localStorage.removeItem('rust_save'); } catch(e) {}
     try {
       let p = JSON.parse(localStorage.getItem('passedLevels') || '[]');
@@ -1836,43 +1944,70 @@ function showWin() {
       localStorage.setItem('passedLevels', JSON.stringify(p));
     } catch(e) {}
 
+    // === 星级评价系统 ===
+    const unused = candidates ? candidates.filter(c => !c.used).length : 0;
+    const total = candidates ? candidates.length : 0;
+    const timeUsed = TIMER_SECONDS - timeLeft;
+    // 更新最佳时间
+    const isNewBest = updateBestTime(currentLevel, timeUsed);
+    if (isNewBest) setHint('🎉 新纪录! ' + timeUsed + '秒', '#ffd700');
+    // 标记每日挑战完成
+    if (currentLevel === getDailyLevel()) markDailyCompleted(stars);
+
+    
+    // 星级计算（腾讯/网易标准）
+    let stars = 1;
+    if (timeLeft >= 15 && unused === 0 && placedHistory.length <= total) stars = 3;
+    else if (timeLeft >= 10 && unused <= 1) stars = 2;
+    
+    // 保存星级（只保存最高记录）
+    try {
+      let s = JSON.parse(localStorage.getItem('rust_stars') || '{}');
+      if (!s[currentLevel] || s[currentLevel] < stars) {
+        s[currentLevel] = stars;
+        localStorage.setItem('rust_stars', JSON.stringify(s));
+      }
+    } catch(e) {}
+
     draw();
-
     if (!cellSize) return;
-
-        winPath = findPath();
+    winPath = findPath();
     draw();
     spawnConfetti();
-        vibrate([100, 50, 100]);
+    // 检查成就
+    if (!usedUndo) { try { localStorage.setItem('ach_no_undo', '1'); } catch(e) {} }
+    // 检查速通成就（总用时）
+    if (!usedUndo && timeUsed < 15) {
+      let allTimes = JSON.parse(localStorage.getItem('rust_times') || '[]');
+      allTimes.push(timeUsed);
+      if (allTimes.length >= LEVELS.length) {
+        const total = allTimes.reduce((a,b)=>a+b, 0);
+        if (total < 150) try { localStorage.setItem('ach_speed_run', '1'); } catch(e) {}
+      }
+      localStorage.setItem('rust_times', JSON.stringify(allTimes));
+    }
+    checkAchievements();
 
-
+    vibrate([100, 50, 100]);
 
     const used = placedHistory ? placedHistory.length : 0;
-
-    const total = candidates ? candidates.length : 0;
-
     const isLast = currentLevel >= LEVELS.length - 1;
 
-    const timeUsed = TIMER_SECONDS - timeLeft;
+    // 生成星级显示
+    let starsHtml = '<span style="font-size:28px;letter-spacing:4px">';
+    for (let i = 0; i < 3; i++) {
+      starsHtml += i < stars ? '<span style="color:#ffd700">★</span>' : '<span style="color:#444">★</span>';
+    }
+    starsHtml += '</span>';
 
-
-
-    let msg = `<h2>🎉 通路达成!</h2><p>用了 ${used}/${total} 块 | 用时 ${timeUsed}秒</p>`;
-
-    if (isLast) msg += `<p style="color:#ffd700;font-size:13px">🏆 恭喜通关全部关卡！</p>`;
-
-    msg += `<button id="btnNext">${isLast ? '🔄 重玩一遍' : '下一关 →'}</button>`;
-
-
+    let msg = '<h2>🎉 通路达成!</h2><p style="margin:12px 0">' + starsHtml + '</p><p>用了 ' + used + '/' + total + ' 块 | 用时 ' + timeUsed + '秒</p>';
+    if (isLast) msg += '<p style="color:#ffd700;font-size:13px">🏆 恭喜通关全部关卡！</p>';
+    msg += '<button id="btnNext">' + (isLast ? '🔄 重玩一遍' : '下一关 →') + '</button>';
 
     const div = showModal(msg);
-
     const btnNext = document.getElementById('btnNext');
-
     if (btnNext) btnNext.onclick = () => { div.remove(); startTransition(isLast ? '第 1/10 关' : '第 ' + (currentLevel + 2) + '/' + LEVELS.length + ' 关', () => { if (isLast) loadLevel(0); else loadLevel(currentLevel + 1); }); };
-
 }
-
 
 
 function showFail() {
@@ -1883,7 +2018,7 @@ function showFail() {
     document.body.appendChild(flashOverlay);
     setTimeout(() => { flashOverlay.style.transition = 'opacity 0.5s'; flashOverlay.style.opacity = '0'; }, 100);
     setTimeout(() => flashOverlay.remove(), 600);
-    vibrate([100, 50, 200]);
+    triggerShake(12); vibrate([100, 50, 200]);
 
     setHint('⏰ 时间到!', '#ff4444');
 
@@ -1983,6 +2118,18 @@ canvas.addEventListener('pointerdown', (e) => {
     if (window._levelSelectBtn) {
       const b = window._levelSelectBtn;
       if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { showLevelSelect(); return; }
+
+    // 每日挑战按钮
+    if (window._dailyBtn) {
+      const b = window._dailyBtn;
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { showDailyChallenge(); return; }
+    }
+    // 排行榜按钮
+    if (window._lobbyBtn) {
+      const b = window._lobbyBtn;
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { showLeaderboard(); return; }
+    }
+
     }
 
 const card = hitTest(x, y, window._cardRects);
@@ -2255,6 +2402,7 @@ loop();
 function showLevelSelect() {
   try {
     const p = JSON.parse(localStorage.getItem('passedLevels') || '[]');
+    const s = JSON.parse(localStorage.getItem('rust_stars') || '{}');
     let html = '<div class="lv-overlay" id="lvOverlay"><div class="lv-box"><h2>🗺️ 选择关卡</h2><div class="lv-grid">';
     for (let i = 0; i < LEVELS.length; i++) {
       const passed = p.includes(i);
@@ -2264,7 +2412,13 @@ function showLevelSelect() {
       if (passed) cls += ' passed';
       if (isCurrent) cls += ' current';
       if (!canPlay) cls += ' locked';
-      html += '<button class="' + cls + '" data-lv="' + i + '" ' + (!canPlay?'disabled':'') + '>' + (i+1) + (passed ? ' ✓' : '') + '</button>';
+      
+      // 显示星级
+      const stars = s[i] || 0;
+      let starStr = '';
+      for (let j = 0; j < 3; j++) starStr += j < stars ? '★' : '☆';
+      
+      html += '<button class="' + cls + '" data-lv="' + i + '" ' + (!canPlay?'disabled':'') + '>' + (i+1) + (passed ? ' ✓' : '') + '<br><span style="font-size:10px;color:' + (stars>0?'#ffd700':'#444') + '">' + starStr + '</span></button>';
     }
     html += '</div><button onclick="hideLevelSelect()" style="width:100%;padding:12px;border:1px solid rgba(255,255,255,0.15);border-radius:12px;background:rgba(255,255,255,0.06);color:#aaa;font-size:14px;cursor:pointer">关闭</button></div></div>';
     document.querySelectorAll('.lv-overlay').forEach(e=>e.remove());
@@ -2279,11 +2433,166 @@ function showLevelSelect() {
   } catch(e) { console.error(e); }
 }
 
+
 function hideLevelSelect() {
   document.querySelectorAll('.lv-overlay').forEach(e=>e.remove());
 }function hideLevelSelect() {
   document.querySelectorAll('.lv-overlay').forEach(e=>e.remove());
 }
+
+// === 成就系统 ===
+const ACHIEVEMENTS = [
+  { id:'first_win', name:'初出茅庐', desc:'通过第1关', icon:'🎯', check:()=>JSON.parse(localStorage.getItem('passedLevels')||'[]').length >= 1 },
+  { id:'all_3star', name:'完美主义', desc:'所有关卡3星', icon:'👑', check:()=>{const s=JSON.parse(localStorage.getItem('rust_stars')||'{}');return Object.keys(s).length>=LEVELS.length && Object.values(s).every(v=>v===3)}},
+  { id:'no_undo', name:'一气呵成', desc:'不使用撤销通关', icon:'⚡', check:()=>localStorage.getItem('ach_no_undo')==='1' },
+  { id:'speed_run', name:'极速通关', desc:'10关总用时<150秒', icon:'🏃', check:()=>localStorage.getItem('ach_speed_run')==='1' },
+  { id:'all_pass', name:'末日幸存者', desc:'通过全部10关', icon:'🏆', check:()=>JSON.parse(localStorage.getItem('passedLevels')||'[]').length>=LEVELS.length},
+];
+
+let earnedAchievements = JSON.parse(localStorage.getItem('rust_achievements')||'[]');
+
+function checkAchievements() {
+  let newEarned = false;
+  ACHIEVEMENTS.forEach(a => {
+    if (!earnedAchievements.includes(a.id) && a.check()) {
+      earnedAchievements.push(a.id);
+      newEarned = true;
+      showAchievement(a);
+    }
+  });
+  if (newEarned) localStorage.setItem('rust_achievements', JSON.stringify(earnedAchievements));
+}
+
+function showAchievement(ach) {
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(26,26,46,0.95);border:1px solid rgba(255,215,0,0.6);border-radius:16px;padding:16px 24px;z-index:400;animation:achSlide .5s ease-out;color:#fff;font-size:14px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 0 30px rgba(255,215,0,0.2)';
+  div.innerHTML = '<span style="font-size:24px;margin-right:8px">' + ach.icon + '</span><b>' + ach.name + '</b><br><span style="font-size:12px;color:#aaa">' + ach.desc + '</span>';
+  document.body.appendChild(div);
+  setTimeout(() => { div.style.opacity='0'; div.style.transition='opacity 0.5s'; setTimeout(()=>div.remove(),500); }, 2500);
+}
+
+// 在showWin中调用成就检查
+
+
+// === 每日挑战系统 (腾讯/网易标准) ===
+function getDailySeed() {
+  const d = new Date();
+  return d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
+}
+
+function getDailyLevel() {
+  const seed = getDailySeed();
+  let hash = 0;
+  const s = String(seed);
+  for (let i = 0; i < s.length; i++) hash = ((hash << 5) - hash) + s.charCodeAt(i) | 0;
+  return Math.abs(hash) % LEVELS.length;
+}
+
+function isDailyCompleted() {
+  const key = 'daily_' + getDailySeed();
+  return localStorage.getItem(key) === 'done';
+}
+
+function markDailyCompleted(stars) {
+  const key = 'daily_' + getDailySeed();
+  localStorage.setItem(key, 'done');
+  // 记录每日星级
+  const today = 'daily_stars_' + getDailySeed();
+  localStorage.setItem(today, stars);
+}
+
+function showDailyChallenge() {
+  const lv = getDailyLevel();
+  const completed = isDailyCompleted();
+  const stars = localStorage.getItem('daily_stars_' + getDailySeed()) || 0;
+  
+  let msg = '<h2>📅 每日挑战</h2>';
+  msg += '<p style="color:#aaa;font-size:13px">今日关卡: 第 ' + (lv+1) + ' 关</p>';
+  msg += '<p style="color:#ffd700;font-size:14px;margin:8px 0">' + LEVEL_NAMES[lv] + '</p>';
+  
+  if (completed) {
+    let starStr = '';
+    for (let i = 0; i < 3; i++) starStr += i < stars ? '★' : '☆';
+    msg += '<p style="color:#81c784;font-size:16px;margin:12px 0">✅ 已完成! ' + starStr + '</p>';
+  } else {
+    msg += '<button id="btnDaily" style="background:linear-gradient(135deg,#ffd700,#ffaa00);color:#000;border:none;padding:14px 28px;border-radius:14px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:8px">开始挑战 🎯</button>';
+  }
+  
+  msg += '<button onclick="hideDailyChallenge()" style="margin-top:10px;width:100%;padding:10px;border:1px solid rgba(255,255,255,0.15);border-radius:10px;background:rgba(255,255,255,0.06);color:#aaa;font-size:13px;cursor:pointer">关闭</button>';
+  
+  const div = showModal(msg, '');
+  const btn = document.getElementById('btnDaily');
+  if (btn) btn.onclick = function() { div.remove(); loadLevel(lv); };
+}
+
+function hideDailyChallenge() {
+  document.querySelectorAll('.modal-overlay').forEach(function(e) { e.remove(); });
+}
+
+
+// === 本地排行榜系统 ===
+function updateBestTime(lv, timeUsed) {
+  const key = 'best_' + lv;
+  const best = localStorage.getItem(key);
+  if (!best || timeUsed < parseInt(best)) {
+    localStorage.setItem(key, timeUsed);
+    return true;
+  }
+  return false;
+}
+
+function getBestTime(lv) {
+  return localStorage.getItem('best_' + lv) || null;
+}
+
+function getAllBestTime() {
+  let total = 0;
+  for (let i = 0; i < LEVELS.length; i++) {
+    const t = getBestTime(i);
+    if (t) total += parseInt(t);
+    else return null; // 有未完成的关卡
+  }
+  return total;
+}
+
+function showLeaderboard() {
+  let msg = '<h2>🏆 本地排行榜</h2>';
+  msg += '<div style="max-height:280px;overflow-y:auto;margin:12px 0">';
+  
+  const s = JSON.parse(localStorage.getItem('rust_stars') || '{}');
+  
+  for (let i = 0; i < LEVELS.length; i++) {
+    const best = getBestTime(i);
+    const stars = s[i] || 0;
+    const passed = JSON.parse(localStorage.getItem('passedLevels') || '[]').includes(i);
+    
+    msg += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;margin:4px 0;border-radius:8px;background:' + (passed ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)') + '">';
+    msg += '<span style="color:#aaa;font-size:13px">第' + (i+1) + '关</span>';
+    
+    let starStr = '';
+    for (let j = 0; j < 3; j++) starStr += j < stars ? '<span style="color:#ffd700">★</span>' : '<span style="color:#444">★</span>';
+    msg += '<span>' + starStr + '</span>';
+    
+    msg += '<span style="color:' + (best ? '#81c784' : '#666') + ';font-size:13px">' + (best ? best + '秒' : '未通关') + '</span>';
+    msg += '</div>';
+  }
+  
+  // 总计
+  const total = getAllBestTime();
+  if (total) {
+    msg += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,215,0,0.2);color:#ffd700;font-size:14px">总计: ' + total + ' 秒</div>';
+  }
+  
+  msg += '</div>';
+  msg += '<button onclick="hideLeaderboard()" style="width:100%;padding:12px;border:1px solid rgba(255,255,255,0.15);border-radius:12px;background:rgba(255,255,255,0.06);color:#aaa;font-size:14px;cursor:pointer">关闭</button>';
+  
+  showModal(msg, '');
+}
+
+function hideLeaderboard() {
+  document.querySelectorAll('.modal-overlay').forEach(function(e) { e.remove(); });
+}
+
 </script>
 
 </body>
